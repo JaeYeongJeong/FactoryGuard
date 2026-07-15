@@ -34,7 +34,7 @@ FactoryGuard
 │       ├── main.py
 │       ├── db/
 │       └── routers/
-│
+├── .env
 ├── environment.yml
 └── README.md
 ```
