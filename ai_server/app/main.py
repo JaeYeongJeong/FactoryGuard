@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.ws_router import router as ws_router
+from app.routers.reports_router import router as reports_router
 
 app = FastAPI(title="FactoryGuard Vision Demo")
 
@@ -15,7 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(ws_router)
-
+app.include_router(reports_router)
 
 @app.get("/health")
 def health():
