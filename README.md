@@ -19,6 +19,19 @@ cloudflared tunnel run factoryguard-api
 내부 서비스 통신에는 `API_BACKEND_URL`, 외부 공개 주소에는
 `API_BACKEND_PUBLIC_URL`, `API_AI_PUBLIC_URL`, `API_CAPTURE_BASE_URL`을 사용합니다.
 
+### Vision LLM / RAG / KWS 엔드포인트
+
+- `POST /reports/analyze`: 이미지 Vision LLM 분석 및 백엔드 보고서 저장
+- `POST /reports/analyze-with-legal-basis`: Vision 분석, RAG 근거 결합, 백엔드 저장
+- `POST /rag/search`: 이벤트 기반 안전·개인정보 근거 검색
+- `POST /rag/report`: 근거, 권장조치, LLM 컨텍스트 생성
+- `POST /kws/simulate`: 긴급 키워드 시뮬레이션, 백엔드 이벤트 저장
+- `POST /kws/stop-test`: `dry_run` 정지 경로 점검
+
+RAG는 `ai_server/data/rag_indexes`의 FAISS 인덱스를 사용하며 임베딩 모델은
+첫 RAG 요청 시 로드됩니다. KWS는 현재 팀원 구현과 동일하게 텍스트 시뮬레이션
+단계이며, 실제 마이크 모델 연동 전까지 액추에이터는 `dry_run`만 허용합니다.
+
 # Project Structure
 
 ```text

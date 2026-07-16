@@ -23,6 +23,6 @@ def create_indexes():
     
 
     # ===== incident_reports =====
-    incident_report_collection.create_index("incident_id", unique=True)
+    incident_report_collection.create_index("report_id", unique=True)
     incident_report_collection.create_index("event_id")
     incident_report_collection.create_index("created_at")

@@ -1,10 +1,12 @@
 import base64
 from functools import lru_cache
 from pathlib import Path
+from uuid import uuid4
 
 from openai import OpenAI
 
 from app.config import settings
+from app.services.vision_llm.rag.engine import get_engine
 
 
 @lru_cache(maxsize=1)
@@ -84,3 +86,48 @@ def analyze_accident(
         raise RuntimeError("사고 분석 결과가 비어 있습니다.")
 
     return report
+
+
+def generate_report_with_legal_basis(
+    image_path: str | Path,
+    mime_type: str = "image/jpeg",
+    event_id: str | None = None,
+) -> dict:
+    """Vision 분석 결과에 RAG 법령 근거와 권장 조치를 결합합니다."""
+
+    report = analyze_accident(image_path, mime_type)
+    linked_event_id = event_id or f"report-event-{uuid4().hex}"
+    rag_event = {
+        "event_id": linked_event_id,
+        "source": "vision",
+        "risk_type": "산업재해 위험",
+        "description": report,
+        "vision_labels": ["vision_llm_accident_analysis"],
+    }
+
+    try:
+        rag_result = get_engine().build_report_basis(
+            event=rag_event,
+            top_k=settings.rag.top_k,
+            include_markdown=True,
+        )
+    except Exception as exc:
+        return {
+            "event_id": linked_event_id,
+            "report": report,
+            "legal_basis": [],
+            "recommended_action": [],
+            "rag_available": False,
+            "rag_error": str(exc),
+            "rag_markdown": None,
+        }
+
+    return {
+        "event_id": linked_event_id,
+        "report": report,
+        "legal_basis": [item.model_dump() for item in rag_result.legal_basis],
+        "recommended_action": rag_result.recommended_action,
+        "rag_available": True,
+        "rag_error": None,
+        "rag_markdown": rag_result.markdown,
+    }

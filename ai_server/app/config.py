@@ -6,8 +6,8 @@
 from pathlib import Path
 from typing import Optional
 
-from pydantic import AliasChoices, Field
-from pydantic_settings import BaseSettings
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -28,11 +28,9 @@ class DetectorSettings(BaseSettings):
     img_size: int = Field(default=640, description="추론 이미지 크기")
     target_classes: list[int] = Field(default=[0], description="감지 대상 클래스 ID (0=person)")
 
-    class Config:
-        env_prefix = "DETECTOR_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="DETECTOR_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class TrackerSettings(BaseSettings):
@@ -41,11 +39,9 @@ class TrackerSettings(BaseSettings):
     track_buffer: int = Field(default=30, description="추적 버퍼 프레임 수")
     match_thresh: float = Field(default=0.8, description="매칭 임계값")
 
-    class Config:
-        env_prefix = "TRACKER_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="TRACKER_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class VideoSettings(BaseSettings):
@@ -59,11 +55,9 @@ class VideoSettings(BaseSettings):
     fps_limit: int = Field(default=30, description="최대 FPS 제한")
     loop: bool = Field(default=True, description="영상 파일 반복 재생")
 
-    class Config:
-        env_prefix = "VIDEO_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="VIDEO_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class ZoneSettings(BaseSettings):
@@ -74,11 +68,9 @@ class ZoneSettings(BaseSettings):
         description="기본 위험구역 (API 연결 불가 시 사용)"
     )
 
-    class Config:
-        env_prefix = "ZONE_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="ZONE_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class EventSettings(BaseSettings):
@@ -103,11 +95,9 @@ class EventSettings(BaseSettings):
     enter_threshold_frames: int = Field(default=3, description="위험 감지 판정에 필요한 최소 연속 프레임 수")
     exit_threshold_frames: int = Field(default=5, description="위험 해제 판정에 필요한 최소 연속 프레임 수")
 
-    class Config:
-        env_prefix = "EVENT_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="EVENT_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class APISettings(BaseSettings):
@@ -138,11 +128,45 @@ class APISettings(BaseSettings):
     timeout: float = Field(default=5.0, description="API 요청 타임아웃 (초)")
     retry_count: int = Field(default=3, description="API 요청 재시도 횟수")
 
-    class Config:
-        env_prefix = "API_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="API_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
+
+
+class RagSettings(BaseSettings):
+    """법령 근거 검색 설정."""
+
+    index_dir: str = Field(default=str(AI_SERVER_ROOT / "data" / "rag_indexes"))
+    model_name: str = Field(default="jhgan/ko-sroberta-multitask")
+    top_k: int = Field(default=5, ge=1, le=20)
+
+    @field_validator("index_dir")
+    @classmethod
+    def resolve_index_dir(cls, value: str) -> str:
+        path = Path(value).expanduser()
+        if path.is_absolute():
+            return str(path)
+        if path.parts and path.parts[0] == "ai_server":
+            return str(PROJECT_ROOT / path)
+        return str(AI_SERVER_ROOT / path)
+
+    model_config = SettingsConfigDict(
+        env_prefix="RAG_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
+
+
+class KwsSettings(BaseSettings):
+    """음성 긴급정지 키워드 설정."""
+
+    threshold: float = Field(default=0.75, ge=0.0, le=1.0)
+    cooldown_seconds: float = Field(default=2.0, ge=0.0)
+    default_equipment: str = Field(default="컨베이어")
+    default_location: str = Field(default="미지정 구역")
+    actuator_mode: str = Field(default="dry_run")
+
+    model_config = SettingsConfigDict(
+        env_prefix="KWS_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 class AppSettings(BaseSettings):
@@ -157,12 +181,12 @@ class AppSettings(BaseSettings):
     zone: ZoneSettings = Field(default_factory=ZoneSettings)
     event: EventSettings = Field(default_factory=EventSettings)
     api: APISettings = Field(default_factory=APISettings)
+    rag: RagSettings = Field(default_factory=RagSettings)
+    kws: KwsSettings = Field(default_factory=KwsSettings)
 
-    class Config:
-        env_prefix = "APP_"
-        env_file = ENV_FILES
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_prefix="APP_", env_file=ENV_FILES, env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 # 전역 설정 인스턴스

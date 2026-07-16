@@ -66,3 +66,6 @@ Thumbs.db
 
 # 학습용 데이터셋, 테스트 이미지
 data
+!ai_server/data/
+!ai_server/data/rag_indexes/
+!ai_server/data/rag_indexes/**
