@@ -1,9 +1,11 @@
+import asyncio
 import json
 import time
 from collections import defaultdict
-from typing import Dict, Set
+from typing import Dict, Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
+from loguru import logger
 
 from app.services.frame_service import FrameService
 
@@ -11,15 +13,15 @@ from app.services.frame_service import FrameService
 class WebSocketService:
     """카메라 및 프론트엔드 WebSocket 연결을 관리합니다."""
 
-    def __init__(self) -> None:
+    def __init__(self, frame_service: Optional[FrameService] = None) -> None:
         self.latest_frames: Dict[str, bytes] = {}
         self.viewers = defaultdict(set)
         self.camera_status: Dict[str, dict] = {}
+        self.frame_service = frame_service
 
-        self.video_sources: Dict[
-            str,
-            WebSocketVideoSource,
-        ] = {}
+    def configure(self, frame_service: FrameService) -> None:
+        """애플리케이션 시작 시 조립된 프레임 서비스를 연결합니다."""
+        self.frame_service = frame_service
 
     def get_health(self) -> dict:
         """현재 카메라 및 시청자 연결 상태를 반환합니다."""
@@ -30,6 +32,7 @@ class WebSocketService:
                 camera_id: len(camera_viewers)
                 for camera_id, camera_viewers in self.viewers.items()
             },
+            "frame_service_ready": self.frame_service is not None,
         }
 
     async def register_camera(
@@ -55,16 +58,6 @@ class WebSocketService:
             )
             return False
 
-        source = WebSocketVideoSource(
-            camera_id=camera_id,
-            resize=(1280, 720),
-            fps=5.0,
-        )
-
-        source.open()
-
-        self.video_sources[camera_id] = source
-
         self.camera_status[camera_id] = {
             "location": registration.get(
                 "location",
@@ -72,6 +65,8 @@ class WebSocketService:
             ),
             "connected_at": time.time(),
             "last_frame_at": None,
+            "processed_frames": 0,
+            "detected_events": 0,
         }
 
         await websocket.send_json(
@@ -101,24 +96,19 @@ class WebSocketService:
             if not registered:
                 return
 
+            if self.frame_service is None:
+                await websocket.close(
+                    code=1011,
+                    reason="vision pipeline is not ready",
+                )
+                return
+
             while True:
                 frame_bytes = await websocket.receive_bytes()
 
-                frame_array = np.frombuffer(
-                    frame_bytes,
-                    dtype=np.uint8,
-                )
-
-                frame = cv2.imdecode(
-                    frame_array,
-                    cv2.IMREAD_COLOR,
-                )
-
-                if frame is None:
-                    continue
-
-                processed_frame, events = self.frame_service.process_frame(
-                    frame=frame,
+                processed_frame, events = await asyncio.to_thread(
+                    self.frame_service.process_frame,
+                    frame_bytes=frame_bytes,
                     camera_id=camera_id,
                 )
 
@@ -127,6 +117,8 @@ class WebSocketService:
 
                 self.latest_frames[camera_id] = processed_frame
                 self.camera_status[camera_id]["last_frame_at"] = time.time()
+                self.camera_status[camera_id]["processed_frames"] += 1
+                self.camera_status[camera_id]["detected_events"] += len(events)
 
                 await self.broadcast_frame(
                     camera_id=camera_id,
@@ -134,10 +126,10 @@ class WebSocketService:
                 )
 
         except WebSocketDisconnect:
-            print(f"[camera:{camera_id}] disconnected")
+            logger.info(f"카메라 WebSocket 연결 종료: {camera_id}")
 
         except Exception as exc:
-            print(f"[camera:{camera_id}] error: {exc}")
+            logger.exception(f"카메라 WebSocket 처리 오류 ({camera_id}): {exc}")
 
         finally:
             self.disconnect_camera(camera_id)
@@ -162,10 +154,10 @@ class WebSocketService:
                 await websocket.receive()
 
         except WebSocketDisconnect:
-            print(f"[viewer:{camera_id}] disconnected")
+            logger.info(f"Viewer WebSocket 연결 종료: {camera_id}")
 
         except Exception as exc:
-            print(f"[viewer:{camera_id}] error: {exc}")
+            logger.warning(f"Viewer WebSocket 처리 오류 ({camera_id}): {exc}")
 
         finally:
             self.disconnect_viewer(

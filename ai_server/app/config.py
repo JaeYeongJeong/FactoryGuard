@@ -39,7 +39,10 @@ class TrackerSettings(BaseSettings):
 
 class VideoSettings(BaseSettings):
     """영상 소스 설정"""
-    source: str = Field(default="0", description="영상 소스 경로 (0, 1 등 웹캠 인덱스 / RTSP URL)")
+    source: str = Field(
+        default="websocket://cam-01",
+        description="영상 소스 경로 (websocket://카메라ID / 웹캠 인덱스 / RTSP URL / 파일)",
+    )
     width: int = Field(default=1280, description="프레임 리사이즈 너비")
     height: int = Field(default=720, description="프레임 리사이즈 높이")
     fps_limit: int = Field(default=30, description="최대 FPS 제한")

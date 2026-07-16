@@ -11,149 +11,6 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 from loguru import logger
 
-class WebSocketVideoSource(VideoSource):
-    """
-    WebSocket으로 수신한 JPEG 바이너리를 OpenCV 프레임으로 제공하는 소스.
-
-    WebSocket 수신부에서 push_bytes()로 프레임을 넣고,
-    기존 영상 처리 파이프라인에서는 read()로 프레임을 꺼냅니다.
-    """
-
-    def __init__(
-        self,
-        camera_id: str,
-        resize: Optional[Tuple[int, int]] = None,
-        fps: float = 5.0,
-        queue_size: int = 1,
-    ):
-        self._camera_id = camera_id
-        self._resize = resize
-        self._fps = fps
-        self._opened = False
-
-        # 실시간 영상은 오래된 프레임보다 최신 프레임이 중요하므로
-        # 기본적으로 프레임 1개만 유지합니다.
-        self._frame_queue: Queue[np.ndarray] = Queue(
-            maxsize=queue_size
-        )
-
-        self._frame_size: Tuple[int, int] = (0, 0)
-        self._frame_count = 0
-
-    def open(self) -> bool:
-        """WebSocket 프레임 소스를 활성화합니다."""
-        self._opened = True
-
-        logger.info(
-            f"WebSocket 영상 소스 활성화: {self._camera_id}"
-        )
-
-        return True
-
-    def push_bytes(self, frame_bytes: bytes) -> bool:
-        """
-        WebSocket에서 받은 JPEG 바이너리를 디코딩해 큐에 저장합니다.
-        """
-        if not self._opened:
-            return False
-
-        frame_array = np.frombuffer(
-            frame_bytes,
-            dtype=np.uint8,
-        )
-
-        frame = cv2.imdecode(
-            frame_array,
-            cv2.IMREAD_COLOR,
-        )
-
-        if frame is None:
-            logger.warning(
-                f"WebSocket 프레임 디코딩 실패: {self._camera_id}"
-            )
-            return False
-
-        return self.push_frame(frame)
-
-    def push_frame(self, frame: np.ndarray) -> bool:
-        """
-        이미 디코딩된 OpenCV 프레임을 큐에 저장합니다.
-        """
-        if not self._opened:
-            return False
-
-        if self._resize is not None:
-            frame = cv2.resize(
-                frame,
-                self._resize,
-            )
-
-        height, width = frame.shape[:2]
-        self._frame_size = (width, height)
-        self._frame_count += 1
-
-        # 기존 프레임을 모두 버리고 최신 프레임만 유지
-        try:
-            while True:
-                self._frame_queue.get_nowait()
-        except Empty:
-            pass
-
-        try:
-            self._frame_queue.put_nowait(frame)
-            return True
-
-        except Full:
-            return False
-
-    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
-        """
-        큐에 저장된 최신 OpenCV 프레임을 반환합니다.
-        """
-        if not self._opened:
-            return False, None
-
-        try:
-            frame = self._frame_queue.get(
-                timeout=1.0
-            )
-            return True, frame
-
-        except Empty:
-            return False, None
-
-    def release(self) -> None:
-        """WebSocket 영상 소스를 종료합니다."""
-        self._opened = False
-
-        try:
-            while True:
-                self._frame_queue.get_nowait()
-        except Empty:
-            pass
-
-        logger.info(
-            f"WebSocket 영상 소스 해제: {self._camera_id}"
-        )
-
-    def is_opened(self) -> bool:
-        return self._opened
-
-    @property
-    def fps(self) -> float:
-        return self._fps
-
-    @property
-    def frame_size(self) -> Tuple[int, int]:
-        if self._resize is not None:
-            return self._resize
-
-        return self._frame_size
-
-    @property
-    def frame_count(self) -> int:
-        return self._frame_count
-
 class VideoSource(ABC):
     """영상 소스 추상 클래스"""
 
@@ -188,6 +45,96 @@ class VideoSource(ABC):
     def frame_size(self) -> Tuple[int, int]:
         """(width, height)"""
         pass
+
+
+class WebSocketVideoSource(VideoSource):
+    """WebSocket으로 수신한 최신 JPEG 프레임을 제공하는 영상 소스."""
+
+    def __init__(
+        self,
+        camera_id: str,
+        resize: Optional[Tuple[int, int]] = None,
+        fps: float = 5.0,
+        queue_size: int = 1,
+    ):
+        self._camera_id = camera_id
+        self._resize = resize
+        self._fps = fps
+        self._opened = False
+        self._frame_queue: Queue[np.ndarray] = Queue(maxsize=queue_size)
+        self._frame_size: Tuple[int, int] = (0, 0)
+        self._frame_count = 0
+
+    def open(self) -> bool:
+        self._opened = True
+        logger.info(f"WebSocket 영상 소스 활성화: {self._camera_id}")
+        return True
+
+    def push_bytes(self, frame_bytes: bytes) -> bool:
+        if not self._opened:
+            return False
+
+        frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
+        frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
+        if frame is None:
+            logger.warning(f"WebSocket 프레임 디코딩 실패: {self._camera_id}")
+            return False
+        return self.push_frame(frame)
+
+    def push_frame(self, frame: np.ndarray) -> bool:
+        if not self._opened:
+            return False
+
+        if self._resize is not None:
+            frame = cv2.resize(frame, self._resize)
+
+        height, width = frame.shape[:2]
+        self._frame_size = (width, height)
+        self._frame_count += 1
+
+        try:
+            while True:
+                self._frame_queue.get_nowait()
+        except Empty:
+            pass
+
+        try:
+            self._frame_queue.put_nowait(frame)
+            return True
+        except Full:
+            return False
+
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        if not self._opened:
+            return False, None
+        try:
+            return True, self._frame_queue.get(timeout=1.0)
+        except Empty:
+            return False, None
+
+    def release(self) -> None:
+        self._opened = False
+        try:
+            while True:
+                self._frame_queue.get_nowait()
+        except Empty:
+            pass
+        logger.info(f"WebSocket 영상 소스 해제: {self._camera_id}")
+
+    def is_opened(self) -> bool:
+        return self._opened
+
+    @property
+    def fps(self) -> float:
+        return self._fps
+
+    @property
+    def frame_size(self) -> Tuple[int, int]:
+        return self._resize if self._resize is not None else self._frame_size
+
+    @property
+    def frame_count(self) -> int:
+        return self._frame_count
 
 
 class FileVideoSource(VideoSource):

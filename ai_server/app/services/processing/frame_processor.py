@@ -54,6 +54,7 @@ class FrameProcessor:
         self._renderer = renderer
         self._event_sender = event_sender
         self._show_display = show_display
+        self._process_lock = threading.Lock()
 
         # MediaPipe 감지기 연동
         self._mp_detector = MediaPipeDetector()
@@ -69,6 +70,15 @@ class FrameProcessor:
         logger.info("FrameProcessor 초기화 완료 (MediaPipe 하이브리드 연동)")
 
     def process(
+        self,
+        frame: np.ndarray,
+        show_display: bool = True
+    ) -> tuple[np.ndarray, list[IntrusionEvent]]:
+        """상태 기반 처리기가 동시에 실행되지 않도록 단일 프레임을 처리합니다."""
+        with self._process_lock:
+            return self._process_frame(frame, show_display)
+
+    def _process_frame(
         self,
         frame: np.ndarray,
         show_display: bool = True
@@ -212,4 +222,3 @@ class FrameProcessor:
                 time.sleep(0.03)
                 
         logger.info("🎬 [FrameProcessor] 비전 분석 루프 백그라운드 정지 완료")
-
