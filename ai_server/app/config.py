@@ -106,6 +106,10 @@ class APISettings(BaseSettings):
         default="http://localhost:8001",
         description="프론트에서 접근 가능한 AI 서버 URL",
     )
+    capture_base_url: Optional[str] = Field(
+        default=None,
+        description="파일명을 제외한 공개 캡처 URL (예: https://ai.example.com/captures)",
+    )
     ws_url: str = Field(default="ws://localhost:8000/events/stream", description="WebSocket URL")
     openai_api_key: Optional[str] = Field(default=None, description="API 인증 키")
     timeout: float = Field(default=5.0, description="API 요청 타임아웃 (초)")

@@ -166,7 +166,10 @@ Vision LLM(OpenAI)을 이용한 사고 분석 서비스입니다.
 Vision AI는 위험 이벤트를 백엔드 `POST /events/detect`로 전송합니다. 백엔드는 MongoDB 저장 후 프론트엔드 WebSocket `WS /events/stream`으로 동일한 이벤트를 전송합니다.
 
 프론트엔드는 `GET /events?limit=50`으로 최근 이벤트를 조회할 수 있습니다.
-캡처 URL의 호스트는 프론트에서 접근 가능한 주소로 `API_AI_PUBLIC_URL`에 설정합니다.
+파일명을 제외한 공개 캡처 주소는 `API_CAPTURE_BASE_URL`에 설정합니다.
+예를 들어 `API_CAPTURE_BASE_URL=https://ai.j-jandy.com/captures`로 설정하면
+DB에는 `https://ai.j-jandy.com/captures/{파일명}` 형태로 저장됩니다.
+`API_CAPTURE_BASE_URL`이 없으면 기존처럼 `API_AI_PUBLIC_URL/captures`를 사용합니다.
 
 ```json
 {

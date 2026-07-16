@@ -110,6 +110,7 @@ class VisionAIService:
         self._event_publisher = EventPublisher(
             backend_url=settings.api.backend_url,
             ai_public_url=settings.api.ai_public_url,
+            capture_base_url=settings.api.capture_base_url,
             timeout=settings.api.timeout,
             retry_count=settings.api.retry_count,
         )

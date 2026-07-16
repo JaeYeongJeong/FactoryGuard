@@ -20,12 +20,17 @@ class EventPublisher:
         self,
         backend_url: str,
         ai_public_url: str,
+        capture_base_url: Optional[str] = None,
         timeout: float = 5.0,
         retry_count: int = 3,
         max_queue_size: int = 200,
     ) -> None:
         self._endpoint = f"{backend_url.rstrip('/')}/events/detect"
-        self._ai_public_url = ai_public_url.rstrip("/")
+        self._capture_base_url = (
+            capture_base_url.rstrip("/")
+            if capture_base_url
+            else f"{ai_public_url.rstrip('/')}/captures"
+        )
         self._timeout = timeout
         self._retry_count = retry_count
         self._queue: queue.Queue[dict] = queue.Queue(maxsize=max_queue_size)
@@ -58,7 +63,7 @@ class EventPublisher:
         snapshot_url = None
         if snapshot_path is not None:
             filename = quote(snapshot_path.name)
-            snapshot_url = f"{self._ai_public_url}/captures/{filename}"
+            snapshot_url = f"{self._capture_base_url}/{filename}"
 
         status = getattr(event.event_type, "value", event.event_type)
         timestamp = datetime.fromtimestamp(event.timestamp, tz=timezone.utc)
