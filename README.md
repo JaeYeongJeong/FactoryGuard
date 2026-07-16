@@ -34,7 +34,7 @@ FactoryGuard
 │   │       │   └── visualization/
 │   │       └── vision_llm/
 │   │
-│   ├── capture/
+│   ├── captures/
 │   ├── data/
 │   └── vector_db/
 │
@@ -153,7 +153,7 @@ Vision LLM(OpenAI)을 이용한 사고 분석 서비스입니다.
 
 ---
 
-### capture/
+### captures/
 
 위험 상태가 처음 감지된 프레임을 JPEG로 저장합니다.
 

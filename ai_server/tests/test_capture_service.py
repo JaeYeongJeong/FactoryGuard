@@ -34,3 +34,17 @@ def test_capture_service_saves_only_entered_events(tmp_path, monkeypatch) -> Non
     assert len(saved) == 1
     assert len(written_paths) == 1
     assert "cam-01_intrusion_worker-7_zone-A.jpg" in written_paths[0]
+
+
+def test_relative_capture_dir_is_anchored_to_ai_server() -> None:
+    service = CaptureService("captures", enabled=False)
+
+    assert service.capture_dir.name == "captures"
+    assert service.capture_dir.parent.name == "ai_server"
+
+
+def test_legacy_ai_server_prefix_does_not_duplicate_path() -> None:
+    service = CaptureService("ai_server/captures", enabled=False)
+
+    assert "ai_server/ai_server" not in service.capture_dir.as_posix()
+    assert service.capture_dir.parent.name == "ai_server"

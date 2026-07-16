@@ -55,8 +55,8 @@ data/test/
 # ==========================
 *.log
 logs/
-ai_server/capture/*
-!ai_server/capture/.gitkeep
+ai_server/captures/*
+!ai_server/captures/.gitkeep
 
 # ==========================
 # OS

@@ -9,8 +9,8 @@ from typing import Optional
 
 
 class DetectorSettings(BaseSettings):
-    """YOLOv11 감지 설정"""
-    model_path: str = Field(default="yolo11n.pt", description="YOLO 모델 경로")
+    """YOLO26 감지 설정"""
+    model_path: str = Field(default="yolo26n.pt", description="YOLO26 모델 경로")
     confidence_threshold: float = Field(default=0.5, description="감지 신뢰도 임계값")
     iou_threshold: float = Field(default=0.45, description="NMS IoU 임계값")
     device: str = Field(default="auto", description="추론 디바이스 (auto/cpu/cuda/0)")
@@ -74,7 +74,7 @@ class EventSettings(BaseSettings):
     """이벤트 전송 및 감도 튜닝 설정"""
     cooldown_seconds: float = Field(default=10.0, description="같은 이벤트 재전송 쿨다운 (초)")
     save_snapshots: bool = Field(default=True, description="최초 위험 감지 프레임 저장")
-    snapshot_dir: str = Field(default="ai_server/capture", description="위험 감지 프레임 저장 경로")
+    snapshot_dir: str = Field(default="captures", description="위험 감지 프레임 저장 경로")
     
     # 감도 튜닝용 변수 복원
     intrusion_method: str = Field(default="pose-hybrid", description="침입 감지 방법 (point/multi-point/overlap/segment/pose-hybrid)")

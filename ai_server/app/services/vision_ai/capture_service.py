@@ -14,10 +14,25 @@ class CaptureService:
     """최초 위험 감지 이벤트의 처리 프레임을 JPEG로 저장합니다."""
 
     def __init__(self, capture_dir: str, enabled: bool = True) -> None:
-        self._capture_dir = Path(capture_dir)
+        self._capture_dir = self._resolve_capture_dir(capture_dir)
         self._enabled = enabled
         if enabled:
             self._capture_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _resolve_capture_dir(capture_dir: str) -> Path:
+        path = Path(capture_dir).expanduser()
+        if path.is_absolute():
+            return path
+
+        ai_server_root = Path(__file__).resolve().parents[3]
+        if path.parts and path.parts[0] == ai_server_root.name:
+            path = Path(*path.parts[1:])
+        return ai_server_root / path
+
+    @property
+    def capture_dir(self) -> Path:
+        return self._capture_dir
 
     @staticmethod
     def _safe_name(value) -> str:
