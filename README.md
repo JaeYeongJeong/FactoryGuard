@@ -4,6 +4,15 @@ conda 환경
 conda env list
 conda activate [콘다명]
 
+### Conda 환경 업데이트
+
+`environment.yml`이 있는 프로젝트 루트에서 실행합니다.
+
+```bash
+conda env update -n factoryguard -f environment.yml
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+```
+
 ### 백엔드 서버 실행 명령어
 cd FactoryGuard/backend
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
