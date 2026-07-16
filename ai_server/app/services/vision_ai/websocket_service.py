@@ -7,7 +7,7 @@ from typing import Dict, Optional
 from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from app.services.frame_service import FrameService
+from app.services.vision_ai.frame_service import FrameService
 
 
 class WebSocketService:
@@ -19,7 +19,7 @@ class WebSocketService:
         self.camera_status: Dict[str, dict] = {}
         self.frame_service = frame_service
 
-    def configure(self, frame_service: FrameService) -> None:
+    def configure(self, frame_service: Optional[FrameService]) -> None:
         """애플리케이션 시작 시 조립된 프레임 서비스를 연결합니다."""
         self.frame_service = frame_service
 

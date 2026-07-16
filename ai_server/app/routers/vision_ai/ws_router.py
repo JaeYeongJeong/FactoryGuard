@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket
 
-from app.services.websocket_service import websocket_service
+from app.services.vision_ai.websocket_service import websocket_service
 
 
 router = APIRouter(

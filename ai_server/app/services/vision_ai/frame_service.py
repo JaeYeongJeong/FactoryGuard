@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 from loguru import logger
 
+from app.services.vision_ai.capture_service import CaptureService
+
 
 class FrameProcessor(Protocol):
     def process(
@@ -23,10 +25,12 @@ class FrameService:
         processor: FrameProcessor,
         jpeg_quality: int = 75,
         resize: Optional[tuple[int, int]] = None,
+        capture_service: Optional[CaptureService] = None,
     ) -> None:
         self._processor = processor
         self._jpeg_quality = jpeg_quality
         self._resize = resize
+        self._capture_service = capture_service
 
     @staticmethod
     def decode_frame(frame_bytes: bytes) -> Optional[np.ndarray]:
@@ -66,6 +70,13 @@ class FrameService:
             frame,
             show_display=True,
         )
+
+        if self._capture_service is not None and events:
+            self._capture_service.save_danger_frames(
+                processed_frame,
+                events,
+                camera_id,
+            )
 
         encoded_frame = self.encode_frame(processed_frame)
         if encoded_frame is None:

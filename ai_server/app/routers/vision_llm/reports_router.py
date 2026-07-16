@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from app.services.accident_report_service import analyze_accident
+from app.services.vision_llm.accident_report_service import analyze_accident
 
 
 router = APIRouter(

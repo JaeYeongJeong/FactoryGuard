@@ -9,10 +9,10 @@ import time
 from typing import Optional, List, Dict
 from loguru import logger
 
-from app.services.core.tracker import TrackedObject
-from app.services.core.zone_manager import DangerZone
-from app.services.processing.intrusion_detector import IntrusionEvent, IntrusionState
-from app.services.utils.geometry import get_bottom_center
+from app.services.vision_ai.core.tracker import TrackedObject
+from app.services.vision_ai.core.zone_manager import DangerZone
+from app.services.vision_ai.processing.intrusion_detector import IntrusionEvent, IntrusionState
+from app.services.vision_ai.utils.geometry import get_bottom_center
 
 
 class FrameRenderer:

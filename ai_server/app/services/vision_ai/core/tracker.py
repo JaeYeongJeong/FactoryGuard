@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-from app.services.utils.geometry import calculate_iou
+from app.services.vision_ai.utils.geometry import calculate_iou
 
 
 @dataclass

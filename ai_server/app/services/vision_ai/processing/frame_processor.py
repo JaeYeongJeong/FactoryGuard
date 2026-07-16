@@ -9,13 +9,13 @@ import numpy as np
 from typing import Optional
 from loguru import logger
 
-from app.services.core.detector import PersonDetector
-from app.services.core.tracker import PersonTracker
-from app.services.core.zone_manager import DangerZoneManager
-from app.services.processing.intrusion_detector import IntrusionDetector, IntrusionEvent
-from app.services.visualization.renderer import FrameRenderer
-from app.services.communication.event_sender import EventSender
-from app.services.core.mediapipe_detector import MediaPipeDetector
+from app.services.vision_ai.core.detector import PersonDetector
+from app.services.vision_ai.core.tracker import PersonTracker
+from app.services.vision_ai.core.zone_manager import DangerZoneManager
+from app.services.vision_ai.processing.intrusion_detector import IntrusionDetector, IntrusionEvent
+from app.services.vision_ai.visualization.renderer import FrameRenderer
+from app.services.vision_ai.communication.event_sender import EventSender
+from app.services.vision_ai.core.mediapipe_detector import MediaPipeDetector
 
 
 class FrameProcessor:

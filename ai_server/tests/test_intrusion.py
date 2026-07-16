@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pytest
 import numpy as np
 
-from app.services import (
+from app.services.vision_ai import (
     TrackedObject,
     DangerZone,
     IntrusionDetector,
@@ -428,4 +428,3 @@ class TestIntrusionDetector:
             events_fallback = detector.check_intrusions([worker_fallback], [self.zone])
 
         assert len(events_fallback) == 0  # 관절 신뢰도 미달 → 침입 미감지가 정상
-

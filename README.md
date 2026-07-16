@@ -23,8 +23,18 @@ FactoryGuard
 │   │   ├── config.py
 │   │   ├── main.py
 │   │   ├── routers/
+│   │   │   ├── vision_ai/
+│   │   │   └── vision_llm/
 │   │   └── services/
+│   │       ├── vision_ai/
+│   │       │   ├── communication/
+│   │       │   ├── core/
+│   │       │   ├── processing/
+│   │       │   ├── utils/
+│   │       │   └── visualization/
+│   │       └── vision_llm/
 │   │
+│   ├── capture/
 │   ├── data/
 │   └── vector_db/
 │
@@ -78,7 +88,7 @@ FastAPI 애플리케이션을 생성합니다.
 
 라우터에서는 요청을 받아 필요한 Service를 호출하고 결과를 반환하는 역할만 수행합니다.
 
-#### ws_router.py
+#### vision_ai/ws_router.py
 
 WebSocket 기반 영상 스트리밍 API입니다.
 
@@ -88,7 +98,7 @@ WebSocket 기반 영상 스트리밍 API입니다.
 * Browser Viewer 연결
 * 실시간 영상 송수신
 
-#### reports_router.py
+#### vision_llm/reports_router.py
 
 Vision LLM 사고 분석 API입니다.
 
@@ -104,7 +114,7 @@ Vision LLM 사고 분석 API입니다.
 
 AI 서버의 실제 비즈니스 로직을 담당합니다.
 
-#### websocket_service.py
+#### vision_ai/websocket_service.py
 
 WebSocket 연결을 관리합니다.
 
@@ -117,7 +127,7 @@ WebSocket 연결을 관리합니다.
 
 ---
 
-#### frame_service.py
+#### vision_ai/frame_service.py
 
 영상 프레임을 처리합니다.
 
@@ -131,7 +141,7 @@ WebSocket 연결을 관리합니다.
 
 ---
 
-#### accident_report_service.py
+#### vision_llm/accident_report_service.py
 
 Vision LLM(OpenAI)을 이용한 사고 분석 서비스입니다.
 
@@ -140,6 +150,14 @@ Vision LLM(OpenAI)을 이용한 사고 분석 서비스입니다.
 * 이미지 Base64 변환
 * GPT Vision 호출
 * 사고 보고서 생성
+
+---
+
+### capture/
+
+위험 상태가 처음 감지된 프레임을 JPEG로 저장합니다.
+
+기본 저장 조건은 `entered` 이벤트이며, 저장 위치는 `EVENT_SNAPSHOT_DIR` 환경변수로 변경할 수 있습니다.
 
 ---
 

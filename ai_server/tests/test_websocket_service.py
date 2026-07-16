@@ -3,7 +3,7 @@ import json
 
 from fastapi import WebSocketDisconnect
 
-from app.services.websocket_service import WebSocketService
+from app.services.vision_ai.websocket_service import WebSocketService
 
 
 class FakeFrameService:

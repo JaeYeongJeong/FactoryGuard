@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.services.frame_service import FrameService
+from app.services.vision_ai.frame_service import FrameService
 
 
 class FakeProcessor:
@@ -17,24 +17,38 @@ class FakeEncodedFrame:
         return b"encoded-jpeg"
 
 
+class FakeCaptureService:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def save_danger_frames(self, frame, events, camera_id):
+        self.calls.append((frame, events, camera_id))
+        return []
+
+
 def test_frame_service_bridges_jpeg_to_vision_pipeline(monkeypatch) -> None:
     decoded = np.zeros((2, 2, 3), dtype=np.uint8)
     resized = np.zeros((3, 4, 3), dtype=np.uint8)
     processor = FakeProcessor()
-    service = FrameService(processor, resize=(4, 3))
+    capture_service = FakeCaptureService()
+    service = FrameService(
+        processor,
+        resize=(4, 3),
+        capture_service=capture_service,
+    )
 
     monkeypatch.setattr(
-        "app.services.frame_service.cv2.imdecode",
+        "app.services.vision_ai.frame_service.cv2.imdecode",
         lambda frame_array, mode: decoded,
         raising=False,
     )
     monkeypatch.setattr(
-        "app.services.frame_service.cv2.resize",
+        "app.services.vision_ai.frame_service.cv2.resize",
         lambda frame, size: resized,
         raising=False,
     )
     monkeypatch.setattr(
-        "app.services.frame_service.cv2.imencode",
+        "app.services.vision_ai.frame_service.cv2.imencode",
         lambda extension, frame, params: (True, FakeEncodedFrame()),
         raising=False,
     )
@@ -45,3 +59,4 @@ def test_frame_service_bridges_jpeg_to_vision_pipeline(monkeypatch) -> None:
     assert events == ["danger-event"]
     assert processor.frames[0][1] is True
     np.testing.assert_array_equal(processor.frames[0][0], resized)
+    assert capture_service.calls[0][1:] == (["danger-event"], "cam-01")

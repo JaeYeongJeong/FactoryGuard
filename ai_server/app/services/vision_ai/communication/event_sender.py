@@ -15,8 +15,8 @@ from loguru import logger
 import cv2
 import numpy as np
 
-from app.services.processing.intrusion_detector import IntrusionEvent, IntrusionState
-from app.services.communication.api_client import BackendAPIClient
+from app.services.vision_ai.processing.intrusion_detector import IntrusionEvent, IntrusionState
+from app.services.vision_ai.communication.api_client import BackendAPIClient
 
 
 class EventSender:

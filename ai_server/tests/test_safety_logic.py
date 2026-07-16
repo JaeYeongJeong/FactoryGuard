@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import numpy as np
 import pytest
-from app.services import IntrusionDetector, _TrackerZoneState
+from app.services.vision_ai import IntrusionDetector, _TrackerZoneState
 
 # MediaPipe Pose 33개 관절 데이터 모의 생성
 def create_mediapipe_skeleton(

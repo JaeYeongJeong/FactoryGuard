@@ -10,9 +10,9 @@ from enum import Enum
 from typing import Optional, Tuple, List
 from loguru import logger
 
-from app.services.core.tracker import TrackedObject
-from app.services.core.zone_manager import DangerZone
-from app.services.utils.geometry import (
+from app.services.vision_ai.core.tracker import TrackedObject
+from app.services.vision_ai.core.zone_manager import DangerZone
+from app.services.vision_ai.utils.geometry import (
     get_bottom_center,
     is_point_in_polygon,
     get_multi_bottom_points,

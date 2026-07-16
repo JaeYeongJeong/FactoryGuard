@@ -2,7 +2,7 @@ import logging
 
 import httpx
 
-from FactoryGuard.ai_server.app.config2 import BACKEND_SERVER_URL
+from app.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class EventSenderService:
     def __init__(self) -> None:
-        self.backend_url = BACKEND_SERVER_URL.rstrip("/")
+        self.backend_url = settings.api.backend_url.rstrip("/")
 
     async def send_event(self, event_data: dict) -> bool:
         """

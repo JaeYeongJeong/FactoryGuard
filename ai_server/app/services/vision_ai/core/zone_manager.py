@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from loguru import logger
 
-from app.services.utils.geometry import polygon_from_points, normalize_polygon
+from app.services.vision_ai.utils.geometry import polygon_from_points, normalize_polygon
 
 
 @dataclass

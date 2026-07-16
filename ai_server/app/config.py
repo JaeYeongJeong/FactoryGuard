@@ -73,8 +73,8 @@ class ZoneSettings(BaseSettings):
 class EventSettings(BaseSettings):
     """이벤트 전송 및 감도 튜닝 설정"""
     cooldown_seconds: float = Field(default=10.0, description="같은 이벤트 재전송 쿨다운 (초)")
-    save_snapshots: bool = Field(default=True, description="침입 감지 시 스냅샷 저장")
-    snapshot_dir: str = Field(default="ai_server/data/snapshots", description="스냅샷 저장 경로")
+    save_snapshots: bool = Field(default=True, description="최초 위험 감지 프레임 저장")
+    snapshot_dir: str = Field(default="ai_server/capture", description="위험 감지 프레임 저장 경로")
     
     # 감도 튜닝용 변수 복원
     intrusion_method: str = Field(default="pose-hybrid", description="침입 감지 방법 (point/multi-point/overlap/segment/pose-hybrid)")
