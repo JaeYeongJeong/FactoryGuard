@@ -13,6 +13,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ### cloudflared tunnel 실행 명령어
 cloudflared tunnel run factoryguard-api
 
+프로젝트 루트의 `.env`는 실행 위치와 관계없이 AI 서버와 백엔드 서버가 함께 읽습니다.
+내부 서비스 통신에는 `API_BACKEND_URL`, 외부 공개 주소에는
+`API_BACKEND_PUBLIC_URL`, `API_AI_PUBLIC_URL`, `API_CAPTURE_BASE_URL`을 사용합니다.
+
 # Project Structure
 
 ```text

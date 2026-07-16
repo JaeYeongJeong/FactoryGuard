@@ -1,8 +1,19 @@
 import base64
-import os
+from functools import lru_cache
 from pathlib import Path
 
 from openai import OpenAI
+
+from app.config import settings
+
+
+@lru_cache(maxsize=1)
+def get_openai_client() -> OpenAI:
+    api_key = settings.api.openai_api_key
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+    return OpenAI(api_key=api_key)
+
 
 def encode_image(image_path: str | Path) -> str:
     """이미지를 Base64 문자열로 변환합니다."""
@@ -18,7 +29,7 @@ def analyze_accident(
 
     base64_image = encode_image(image_path)
 
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4.1",
         messages=[
             {

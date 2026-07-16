@@ -3,9 +3,20 @@
 환경변수 또는 .env 파일로 오버라이드 가능
 """
 
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from pathlib import Path
 from typing import Optional
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+AI_SERVER_ROOT = Path(__file__).resolve().parents[1]
+ENV_FILES = (
+    PROJECT_ROOT / ".env",
+    AI_SERVER_ROOT / ".env",
+    AI_SERVER_ROOT / "app" / ".env",
+)
 
 
 class DetectorSettings(BaseSettings):
@@ -19,7 +30,7 @@ class DetectorSettings(BaseSettings):
 
     class Config:
         env_prefix = "DETECTOR_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -32,7 +43,7 @@ class TrackerSettings(BaseSettings):
 
     class Config:
         env_prefix = "TRACKER_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -50,7 +61,7 @@ class VideoSettings(BaseSettings):
 
     class Config:
         env_prefix = "VIDEO_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -65,7 +76,7 @@ class ZoneSettings(BaseSettings):
 
     class Config:
         env_prefix = "ZONE_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -94,7 +105,7 @@ class EventSettings(BaseSettings):
 
     class Config:
         env_prefix = "EVENT_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -102,6 +113,14 @@ class EventSettings(BaseSettings):
 class APISettings(BaseSettings):
     """백엔드 API 설정"""
     backend_url: str = Field(default="http://localhost:8000", description="백엔드 API 베이스 URL")
+    backend_public_url: Optional[str] = Field(
+        default=None,
+        description="프론트에서 접근 가능한 백엔드 URL",
+    )
+    ai_url: str = Field(
+        default="http://localhost:8001",
+        description="서비스 내부에서 접근하는 AI 서버 URL",
+    )
     ai_public_url: str = Field(
         default="http://localhost:8001",
         description="프론트에서 접근 가능한 AI 서버 URL",
@@ -111,13 +130,17 @@ class APISettings(BaseSettings):
         description="파일명을 제외한 공개 캡처 URL (예: https://ai.example.com/captures)",
     )
     ws_url: str = Field(default="ws://localhost:8000/events/stream", description="WebSocket URL")
-    openai_api_key: Optional[str] = Field(default=None, description="API 인증 키")
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "API_OPENAI_API_KEY"),
+        description="OpenAI API 인증 키",
+    )
     timeout: float = Field(default=5.0, description="API 요청 타임아웃 (초)")
     retry_count: int = Field(default=3, description="API 요청 재시도 횟수")
 
     class Config:
         env_prefix = "API_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
@@ -137,7 +160,7 @@ class AppSettings(BaseSettings):
 
     class Config:
         env_prefix = "APP_"
-        env_file = (".env", "ai_server/.env", "ai_server/app/.env")
+        env_file = ENV_FILES
         env_file_encoding = "utf-8"
         extra = "ignore"
 
