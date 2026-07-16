@@ -1,29 +1,30 @@
 from fastapi import APIRouter, HTTPException
 
-router = APIRouter(prefix="/events", tags=["events"])
+from app.services.event_service import event_service
+from app.schemas.event_schema import DetectionEventCreate
 
-@router.get("/")
-def get_events():
-    """
-    Endpoint to retrieve events.
-    """
+router = APIRouter(
+    prefix="/events",
+    tags=["events"],
+)
+
+
+@router.post("/detect")
+async def receive_detection_event(
+    event_data:  DetectionEventCreate,
+):
     try:
-        # Logic to retrieve events
-        events = []  # Replace with actual event retrieval logic
-        return events
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-      
-@router.get("/{event_id}")
-def get_event(event_id: str):
-    """
-    Endpoint to retrieve a specific event by ID.
-    """
-    try:
-        # Logic to retrieve a specific event
-        event = None  # Replace with actual event retrieval logic
-        if not event:
-            raise HTTPException(status_code=404, detail="Event not found")
-        return event
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        saved_event = await event_service.create_event(
+            event_data
+        )
+
+        return {
+            "success": True,
+            "event": saved_event,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="이벤트 저장 중 오류가 발생했습니다.",
+        ) from exc
