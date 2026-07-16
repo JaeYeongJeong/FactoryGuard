@@ -3,13 +3,6 @@ import os
 from pathlib import Path
 
 from openai import OpenAI
-from app.config import OPENAI_API_KEY
-
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
-
-client = OpenAI(api_key=OPENAI_API_KEY)
-
 
 def encode_image(image_path: str | Path) -> str:
     """이미지를 Base64 문자열로 변환합니다."""

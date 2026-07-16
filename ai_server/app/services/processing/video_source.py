@@ -1,0 +1,523 @@
+"""
+영상 소스 모듈
+MP4 파일, RTSP 스트림 등 다양한 영상 소스를 추상화
+"""
+
+import cv2
+import numpy as np
+import time
+from queue import Empty, Full, Queue
+from abc import ABC, abstractmethod
+from typing import Optional, Tuple
+from loguru import logger
+
+class WebSocketVideoSource(VideoSource):
+    """
+    WebSocket으로 수신한 JPEG 바이너리를 OpenCV 프레임으로 제공하는 소스.
+
+    WebSocket 수신부에서 push_bytes()로 프레임을 넣고,
+    기존 영상 처리 파이프라인에서는 read()로 프레임을 꺼냅니다.
+    """
+
+    def __init__(
+        self,
+        camera_id: str,
+        resize: Optional[Tuple[int, int]] = None,
+        fps: float = 5.0,
+        queue_size: int = 1,
+    ):
+        self._camera_id = camera_id
+        self._resize = resize
+        self._fps = fps
+        self._opened = False
+
+        # 실시간 영상은 오래된 프레임보다 최신 프레임이 중요하므로
+        # 기본적으로 프레임 1개만 유지합니다.
+        self._frame_queue: Queue[np.ndarray] = Queue(
+            maxsize=queue_size
+        )
+
+        self._frame_size: Tuple[int, int] = (0, 0)
+        self._frame_count = 0
+
+    def open(self) -> bool:
+        """WebSocket 프레임 소스를 활성화합니다."""
+        self._opened = True
+
+        logger.info(
+            f"WebSocket 영상 소스 활성화: {self._camera_id}"
+        )
+
+        return True
+
+    def push_bytes(self, frame_bytes: bytes) -> bool:
+        """
+        WebSocket에서 받은 JPEG 바이너리를 디코딩해 큐에 저장합니다.
+        """
+        if not self._opened:
+            return False
+
+        frame_array = np.frombuffer(
+            frame_bytes,
+            dtype=np.uint8,
+        )
+
+        frame = cv2.imdecode(
+            frame_array,
+            cv2.IMREAD_COLOR,
+        )
+
+        if frame is None:
+            logger.warning(
+                f"WebSocket 프레임 디코딩 실패: {self._camera_id}"
+            )
+            return False
+
+        return self.push_frame(frame)
+
+    def push_frame(self, frame: np.ndarray) -> bool:
+        """
+        이미 디코딩된 OpenCV 프레임을 큐에 저장합니다.
+        """
+        if not self._opened:
+            return False
+
+        if self._resize is not None:
+            frame = cv2.resize(
+                frame,
+                self._resize,
+            )
+
+        height, width = frame.shape[:2]
+        self._frame_size = (width, height)
+        self._frame_count += 1
+
+        # 기존 프레임을 모두 버리고 최신 프레임만 유지
+        try:
+            while True:
+                self._frame_queue.get_nowait()
+        except Empty:
+            pass
+
+        try:
+            self._frame_queue.put_nowait(frame)
+            return True
+
+        except Full:
+            return False
+
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        """
+        큐에 저장된 최신 OpenCV 프레임을 반환합니다.
+        """
+        if not self._opened:
+            return False, None
+
+        try:
+            frame = self._frame_queue.get(
+                timeout=1.0
+            )
+            return True, frame
+
+        except Empty:
+            return False, None
+
+    def release(self) -> None:
+        """WebSocket 영상 소스를 종료합니다."""
+        self._opened = False
+
+        try:
+            while True:
+                self._frame_queue.get_nowait()
+        except Empty:
+            pass
+
+        logger.info(
+            f"WebSocket 영상 소스 해제: {self._camera_id}"
+        )
+
+    def is_opened(self) -> bool:
+        return self._opened
+
+    @property
+    def fps(self) -> float:
+        return self._fps
+
+    @property
+    def frame_size(self) -> Tuple[int, int]:
+        if self._resize is not None:
+            return self._resize
+
+        return self._frame_size
+
+    @property
+    def frame_count(self) -> int:
+        return self._frame_count
+
+class VideoSource(ABC):
+    """영상 소스 추상 클래스"""
+
+    @abstractmethod
+    def open(self) -> bool:
+        """영상 소스 열기"""
+        pass
+
+    @abstractmethod
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        """프레임 읽기"""
+        pass
+
+    @abstractmethod
+    def release(self) -> None:
+        """영상 소스 해제"""
+        pass
+
+    @abstractmethod
+    def is_opened(self) -> bool:
+        """영상 소스 열림 상태"""
+        pass
+
+    @property
+    @abstractmethod
+    def fps(self) -> float:
+        """원본 FPS"""
+        pass
+
+    @property
+    @abstractmethod
+    def frame_size(self) -> Tuple[int, int]:
+        """(width, height)"""
+        pass
+
+
+class FileVideoSource(VideoSource):
+    """MP4 등 영상 파일 소스"""
+
+    def __init__(
+        self,
+        file_path: str,
+        resize: Optional[Tuple[int, int]] = None,
+        fps_limit: int = 30,
+        loop: bool = True
+    ):
+        """
+        Args:
+            file_path: 영상 파일 경로
+            resize: 리사이즈 크기 (width, height), None이면 원본 크기
+            fps_limit: 최대 FPS 제한
+            loop: 영상 반복 재생 여부
+        """
+        self._file_path = file_path
+        self._resize = resize
+        self._fps_limit = fps_limit
+        self._loop = loop
+        self._cap: Optional[cv2.VideoCapture] = None
+        self._original_fps: float = 30.0
+        self._original_size: Tuple[int, int] = (0, 0)
+        self._last_frame_time: float = 0.0
+        self._frame_count: int = 0
+
+    def open(self) -> bool:
+        """영상 파일 열기"""
+        self._cap = cv2.VideoCapture(self._file_path)
+        if not self._cap.isOpened():
+            logger.error(f"영상 파일을 열 수 없습니다: {self._file_path}")
+            return False
+
+        self._original_fps = self._cap.get(cv2.CAP_PROP_FPS) or 30.0
+        w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self._original_size = (w, h)
+        total = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        logger.info(
+            f"영상 파일 열림: {self._file_path} "
+            f"({w}x{h}, {self._original_fps:.1f}fps, {total}프레임)"
+        )
+        return True
+
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        """프레임 읽기 (FPS 제한 적용)"""
+        if self._cap is None or not self._cap.isOpened():
+            return False, None
+
+        # FPS 제한
+        min_interval = 1.0 / self._fps_limit
+        now = time.time()
+        elapsed = now - self._last_frame_time
+        if elapsed < min_interval:
+            time.sleep(min_interval - elapsed)
+
+        ret, frame = self._cap.read()
+
+        # 영상 끝에 도달하면 반복 또는 종료
+        if not ret:
+            if self._loop:
+                self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = self._cap.read()
+                if not ret:
+                    return False, None
+                logger.info("영상 반복 재생 시작")
+                self._frame_count = 0
+            else:
+                logger.info("영상 파일 재생 완료")
+                return False, None
+
+        self._last_frame_time = time.time()
+        self._frame_count += 1
+
+        # 리사이즈 적용
+        if self._resize is not None and frame is not None:
+            frame = cv2.resize(frame, self._resize)
+
+        return True, frame
+
+    def release(self) -> None:
+        """영상 소스 해제"""
+        if self._cap is not None:
+            self._cap.release()
+            logger.info("영상 소스 해제됨")
+
+    def is_opened(self) -> bool:
+        return self._cap is not None and self._cap.isOpened()
+
+    @property
+    def fps(self) -> float:
+        return self._original_fps
+
+    @property
+    def frame_size(self) -> Tuple[int, int]:
+        if self._resize is not None:
+            return self._resize
+        return self._original_size
+
+    @property
+    def frame_count(self) -> int:
+        return self._frame_count
+
+
+class RTSPVideoSource(VideoSource):
+    """RTSP 스트림 소스 (추후 확장용)"""
+
+    def __init__(
+        self,
+        rtsp_url: str,
+        resize: Optional[Tuple[int, int]] = None,
+        fps_limit: int = 30,
+        reconnect_delay: float = 5.0
+    ):
+        self._rtsp_url = rtsp_url
+        self._resize = resize
+        self._fps_limit = fps_limit
+        self._reconnect_delay = reconnect_delay
+        self._cap: Optional[cv2.VideoCapture] = None
+        self._last_frame_time: float = 0.0
+
+    def open(self) -> bool:
+        """RTSP 스트림 연결"""
+        # GStreamer 백엔드 사용 시도 (지연시간 감소)
+        self._cap = cv2.VideoCapture(self._rtsp_url, cv2.CAP_FFMPEG)
+
+        if not self._cap.isOpened():
+            logger.error(f"RTSP 스트림 연결 실패: {self._rtsp_url}")
+            return False
+
+        # 버퍼 크기 최소화 (최신 프레임만 사용)
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        logger.info(f"RTSP 스트림 연결됨: {self._rtsp_url}")
+        return True
+
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        if self._cap is None or not self._cap.isOpened():
+            return False, None
+
+        min_interval = 1.0 / self._fps_limit
+        now = time.time()
+        elapsed = now - self._last_frame_time
+        if elapsed < min_interval:
+            time.sleep(min_interval - elapsed)
+
+        ret, frame = self._cap.read()
+        if not ret:
+            logger.warning("RTSP 프레임 읽기 실패, 재연결 시도...")
+            self.release()
+            time.sleep(self._reconnect_delay)
+            self.open()
+            return False, None
+
+        self._last_frame_time = time.time()
+
+        if self._resize is not None and frame is not None:
+            frame = cv2.resize(frame, self._resize)
+
+        return True, frame
+
+    def release(self) -> None:
+        if self._cap is not None:
+            self._cap.release()
+
+    def is_opened(self) -> bool:
+        return self._cap is not None and self._cap.isOpened()
+
+    @property
+    def fps(self) -> float:
+        if self._cap is not None:
+            return self._cap.get(cv2.CAP_PROP_FPS) or 30.0
+        return 30.0
+
+    @property
+    def frame_size(self) -> Tuple[int, int]:
+        if self._resize is not None:
+            return self._resize
+        if self._cap is not None:
+            w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            return (w, h)
+        return (0, 0)
+
+
+
+class WebcamVideoSource(VideoSource):
+    """로컬 USB 웹캠 및 내장 카메라 소스"""
+
+    def __init__(
+        self,
+        webcam_index: int,
+        resize: Optional[Tuple[int, int]] = None,
+        fps_limit: int = 30
+    ):
+        """
+        Args:
+            webcam_index: 웹캠 디바이스 인덱스 (예: 0, 1)
+            resize: 리사이즈 크기 (width, height), None이면 원본 크기
+            fps_limit: 최대 FPS 제한
+        """
+        self._webcam_index = webcam_index
+        self._resize = resize
+        self._fps_limit = fps_limit
+        self._cap: Optional[cv2.VideoCapture] = None
+        self._original_fps: float = 30.0
+        self._original_size: Tuple[int, int] = (0, 0)
+        self._last_frame_time: float = 0.0
+
+    def open(self) -> bool:
+        """웹캠 디바이스 오픈"""
+        self._cap = cv2.VideoCapture(self._webcam_index)
+        if not self._cap.isOpened():
+            logger.error(f"웹캠 디바이스를 열 수 없습니다: 인덱스 {self._webcam_index}")
+            return False
+
+        # 버퍼 지연 최소화를 위한 버퍼 크기 설정 (최신 프레임 획득 타겟)
+        self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        # 웹캠 사양 조회
+        self._original_fps = self._cap.get(cv2.CAP_PROP_FPS) or 30.0
+        w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self._original_size = (w, h)
+
+        logger.info(
+            f"웹캠 소스 연결 성공: 디바이스 인덱스 {self._webcam_index} "
+            f"({w}x{h}, {self._original_fps:.1f}fps)"
+        )
+        return True
+
+    def read(self) -> Tuple[bool, Optional["cv2.Mat"]]:
+        """웹캠에서 프레임 읽기 (FPS 제한 적용)"""
+        if self._cap is None or not self._cap.isOpened():
+            return False, None
+
+        # 실시간 처리를 위한 FPS 제한 딜레이
+        min_interval = 1.0 / self._fps_limit
+        now = time.time()
+        elapsed = now - self._last_frame_time
+        if elapsed < min_interval:
+            time.sleep(min_interval - elapsed)
+
+        ret, frame = self._cap.read()
+        if not ret:
+            logger.warning(f"웹캠(인덱스 {self._webcam_index}) 프레임을 읽지 못했습니다.")
+            return False, None
+
+        self._last_frame_time = time.time()
+
+        # 리사이즈 적용
+        if self._resize is not None and frame is not None:
+            frame = cv2.resize(frame, self._resize)
+
+        return True, frame
+
+    def release(self) -> None:
+        """웹캠 소스 해제"""
+        if self._cap is not None:
+            self._cap.release()
+            logger.info(f"웹캠 소스 해제됨: 인덱스 {self._webcam_index}")
+
+    def is_opened(self) -> bool:
+        return self._cap is not None and self._cap.isOpened()
+
+    @property
+    def fps(self) -> float:
+        return self._original_fps
+
+    @property
+    def frame_size(self) -> Tuple[int, int]:
+        if self._resize is not None:
+            return self._resize
+        return self._original_size
+
+
+def create_video_source(
+    source: str,
+    resize: Optional[Tuple[int, int]] = None,
+    fps_limit: int = 30,
+    loop: bool = True,
+) -> VideoSource:
+    """
+    소스 경로에 따라 적절한 VideoSource 인스턴스를 생성합니다.
+    """
+
+    if source.startswith("websocket://"):
+        camera_id = source.removeprefix("websocket://")
+
+        logger.info(
+            f"WebSocket 소스 생성: {camera_id}"
+        )
+
+        return WebSocketVideoSource(
+            camera_id=camera_id,
+            resize=resize,
+            fps=float(fps_limit),
+        )
+
+    if source.startswith(("rtsp://", "rtsps://")):
+        logger.info(f"RTSP 소스 생성: {source}")
+
+        return RTSPVideoSource(
+            source,
+            resize,
+            fps_limit,
+        )
+
+    if source.isdigit():
+        webcam_idx = int(source)
+
+        logger.info(
+            f"웹캠 소스 생성: 디바이스 인덱스 {webcam_idx}"
+        )
+
+        return WebcamVideoSource(
+            webcam_idx,
+            resize,
+            fps_limit,
+        )
+
+    logger.info(f"파일 소스 생성: {source}")
+
+    return FileVideoSource(
+        source,
+        resize,
+        fps_limit,
+        loop,
+    )

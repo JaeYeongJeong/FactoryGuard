@@ -13,10 +13,13 @@ class WebSocketService:
 
     def __init__(self) -> None:
         self.latest_frames: Dict[str, bytes] = {}
-        self.viewers: Dict[str, Set[WebSocket]] = defaultdict(set)
+        self.viewers = defaultdict(set)
         self.camera_status: Dict[str, dict] = {}
 
-        self.frame_service = FrameService()
+        self.video_sources: Dict[
+            str,
+            WebSocketVideoSource,
+        ] = {}
 
     def get_health(self) -> dict:
         """현재 카메라 및 시청자 연결 상태를 반환합니다."""
@@ -34,7 +37,6 @@ class WebSocketService:
         websocket: WebSocket,
         camera_id: str,
     ) -> bool:
-        """Camera Agent의 최초 등록 메시지를 검증하고 등록합니다."""
         first_message = await websocket.receive_text()
 
         try:
@@ -53,8 +55,21 @@ class WebSocketService:
             )
             return False
 
+        source = WebSocketVideoSource(
+            camera_id=camera_id,
+            resize=(1280, 720),
+            fps=5.0,
+        )
+
+        source.open()
+
+        self.video_sources[camera_id] = source
+
         self.camera_status[camera_id] = {
-            "location": registration.get("location", "unknown"),
+            "location": registration.get(
+                "location",
+                "unknown",
+            ),
             "connected_at": time.time(),
             "last_frame_at": None,
         }
@@ -89,8 +104,21 @@ class WebSocketService:
             while True:
                 frame_bytes = await websocket.receive_bytes()
 
-                processed_frame = self.frame_service.process_frame(
-                    frame_bytes=frame_bytes,
+                frame_array = np.frombuffer(
+                    frame_bytes,
+                    dtype=np.uint8,
+                )
+
+                frame = cv2.imdecode(
+                    frame_array,
+                    cv2.IMREAD_COLOR,
+                )
+
+                if frame is None:
+                    continue
+
+                processed_frame, events = self.frame_service.process_frame(
+                    frame=frame,
                     camera_id=camera_id,
                 )
 
