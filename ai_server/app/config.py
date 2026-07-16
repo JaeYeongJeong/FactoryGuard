@@ -102,7 +102,11 @@ class EventSettings(BaseSettings):
 class APISettings(BaseSettings):
     """백엔드 API 설정"""
     backend_url: str = Field(default="http://localhost:8000", description="백엔드 API 베이스 URL")
-    ws_url: str = Field(default="ws://localhost:8000/ws/events", description="WebSocket URL")
+    ai_public_url: str = Field(
+        default="http://localhost:8001",
+        description="프론트에서 접근 가능한 AI 서버 URL",
+    )
+    ws_url: str = Field(default="ws://localhost:8000/events/stream", description="WebSocket URL")
     openai_api_key: Optional[str] = Field(default=None, description="API 인증 키")
     timeout: float = Field(default=5.0, description="API 요청 타임아웃 (초)")
     retry_count: int = Field(default=3, description="API 요청 재시도 횟수")

@@ -38,43 +38,53 @@ class CaptureService:
     def _safe_name(value) -> str:
         return re.sub(r"[^A-Za-z0-9_.-]+", "-", str(value)).strip("-") or "unknown"
 
+    def save_danger_frame(
+        self,
+        frame: np.ndarray,
+        event,
+        camera_id: str,
+    ) -> Path | None:
+        if not self._enabled:
+            return None
+
+        event_type = getattr(event.event_type, "value", event.event_type)
+        if event_type != "entered":
+            return None
+
+        occurred_at = datetime.fromtimestamp(event.timestamp)
+        timestamp = occurred_at.strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        filename = "_".join(
+            [
+                timestamp,
+                self._safe_name(camera_id),
+                self._safe_name(event.threat_type),
+                f"worker-{self._safe_name(event.tracker_id)}",
+                self._safe_name(event.zone_id),
+            ]
+        ) + ".jpg"
+        capture_path = self._capture_dir / filename
+
+        try:
+            if not cv2.imwrite(str(capture_path), frame):
+                logger.warning(f"위험 감지 프레임 저장 실패: {capture_path}")
+                return None
+        except Exception as exc:
+            logger.warning(f"위험 감지 프레임 저장 오류 ({capture_path}): {exc}")
+            return None
+
+        logger.info(f"위험 감지 프레임 저장: {capture_path}")
+        return capture_path
+
     def save_danger_frames(
         self,
         frame: np.ndarray,
         events: Iterable,
         camera_id: str,
     ) -> list[Path]:
-        if not self._enabled:
-            return []
-
         saved_paths = []
         for event in events:
-            event_type = getattr(event.event_type, "value", event.event_type)
-            if event_type != "entered":
-                continue
-
-            occurred_at = datetime.fromtimestamp(event.timestamp)
-            timestamp = occurred_at.strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            filename = "_".join(
-                [
-                    timestamp,
-                    self._safe_name(camera_id),
-                    self._safe_name(event.threat_type),
-                    f"worker-{self._safe_name(event.tracker_id)}",
-                    self._safe_name(event.zone_id),
-                ]
-            ) + ".jpg"
-            capture_path = self._capture_dir / filename
-
-            try:
-                if not cv2.imwrite(str(capture_path), frame):
-                    logger.warning(f"위험 감지 프레임 저장 실패: {capture_path}")
-                    continue
-            except Exception as exc:
-                logger.warning(f"위험 감지 프레임 저장 오류 ({capture_path}): {exc}")
-                continue
-
-            saved_paths.append(capture_path)
-            logger.info(f"위험 감지 프레임 저장: {capture_path}")
+            capture_path = self.save_danger_frame(frame, event, camera_id)
+            if capture_path is not None:
+                saved_paths.append(capture_path)
 
         return saved_paths

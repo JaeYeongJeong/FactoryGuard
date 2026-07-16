@@ -161,6 +161,30 @@ Vision LLM(OpenAI)을 이용한 사고 분석 서비스입니다.
 
 ---
 
+### 위험 이벤트 연동
+
+Vision AI는 위험 이벤트를 백엔드 `POST /events/detect`로 전송합니다. 백엔드는 MongoDB 저장 후 프론트엔드 WebSocket `WS /events/stream`으로 동일한 이벤트를 전송합니다.
+
+프론트엔드는 `GET /events?limit=50`으로 최근 이벤트를 조회할 수 있습니다.
+캡처 URL의 호스트는 프론트에서 접근 가능한 주소로 `API_AI_PUBLIC_URL`에 설정합니다.
+
+```json
+{
+  "event_id": "4c9bde23-5b41-46f0-b998-4ab836ad77b9",
+  "camera_id": "cam-01",
+  "timestamp": "2026-07-16T04:30:00+00:00",
+  "event_type": "intrusion",
+  "severity": "critical",
+  "status": "entered",
+  "worker_id": 12,
+  "zone_name": "프레스 위험구역",
+  "message": "작업자 12의 위험구역 프레스 위험구역 침입이 감지되었습니다.",
+  "snapshot_url": "http://localhost:8001/captures/example.jpg"
+}
+```
+
+---
+
 ### data/
 
 테스트용 이미지 데이터가 저장됩니다.

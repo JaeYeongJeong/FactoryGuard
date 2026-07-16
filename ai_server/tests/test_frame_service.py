@@ -21,9 +21,17 @@ class FakeCaptureService:
     def __init__(self) -> None:
         self.calls = []
 
-    def save_danger_frames(self, frame, events, camera_id):
-        self.calls.append((frame, events, camera_id))
-        return []
+    def save_danger_frame(self, frame, event, camera_id):
+        self.calls.append((frame, event, camera_id))
+        return None
+
+
+class FakeEventPublisher:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def publish(self, event, camera_id, snapshot_path):
+        self.calls.append((event, camera_id, snapshot_path))
 
 
 def test_frame_service_bridges_jpeg_to_vision_pipeline(monkeypatch) -> None:
@@ -31,10 +39,12 @@ def test_frame_service_bridges_jpeg_to_vision_pipeline(monkeypatch) -> None:
     resized = np.zeros((3, 4, 3), dtype=np.uint8)
     processor = FakeProcessor()
     capture_service = FakeCaptureService()
+    event_publisher = FakeEventPublisher()
     service = FrameService(
         processor,
         resize=(4, 3),
         capture_service=capture_service,
+        event_publisher=event_publisher,
     )
 
     monkeypatch.setattr(
@@ -59,4 +69,5 @@ def test_frame_service_bridges_jpeg_to_vision_pipeline(monkeypatch) -> None:
     assert events == ["danger-event"]
     assert processor.frames[0][1] is True
     np.testing.assert_array_equal(processor.frames[0][0], resized)
-    assert capture_service.calls[0][1:] == (["danger-event"], "cam-01")
+    assert capture_service.calls[0][1:] == ("danger-event", "cam-01")
+    assert event_publisher.calls == [("danger-event", "cam-01", None)]

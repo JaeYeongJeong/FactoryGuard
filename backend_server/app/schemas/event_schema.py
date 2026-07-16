@@ -1,25 +1,19 @@
 from datetime import datetime
+from typing import Optional
 
-from pydantic import BaseModel, Field
-
-
-class BoundingBox(BaseModel):
-    x1: float
-    y1: float
-    x2: float
-    y2: float
+from pydantic import BaseModel
 
 
 class DetectionEventCreate(BaseModel):
+    """Vision AI, DB, Frontend가 공유하는 위험 이벤트 계약."""
+
     event_id: str
     camera_id: str
+    timestamp: datetime
     event_type: str
     severity: str
-    confidence: float = Field(
-        ge=0,
-        le=1,
-    )
-    track_id: int | None = None
-    bbox: BoundingBox
-    detected_at: datetime
+    status: str
+    worker_id: int
+    zone_name: str
     message: str
+    snapshot_url: Optional[str] = None

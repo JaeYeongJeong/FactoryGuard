@@ -77,7 +77,7 @@ class BackendAPIClient:
         Returns:
             전송 성공 여부
         """
-        endpoint = "/api/events"
+        endpoint = "/events/detect"
         result = await self._post(endpoint, event_data)
         return result is not None
 

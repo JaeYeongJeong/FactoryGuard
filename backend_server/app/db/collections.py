@@ -12,7 +12,7 @@ def create_indexes():
     event_collection.create_index("event_type")
     event_collection.create_index("camera_id")
     event_collection.create_index("timestamp")
-    event_collection.create_index("confidence")
+    event_collection.create_index("severity")
     event_collection.create_index("status")
 
     # ===== camera_captures =====

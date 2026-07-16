@@ -6,7 +6,7 @@
 import time
 import threading
 import numpy as np
-from typing import Optional
+from typing import Optional, Protocol
 from loguru import logger
 
 from app.services.vision_ai.core.detector import PersonDetector
@@ -14,8 +14,15 @@ from app.services.vision_ai.core.tracker import PersonTracker
 from app.services.vision_ai.core.zone_manager import DangerZoneManager
 from app.services.vision_ai.processing.intrusion_detector import IntrusionDetector, IntrusionEvent
 from app.services.vision_ai.visualization.renderer import FrameRenderer
-from app.services.vision_ai.communication.event_sender import EventSender
 from app.services.vision_ai.core.mediapipe_detector import MediaPipeDetector
+
+
+class EventSender(Protocol):
+    def send_event(
+        self,
+        event: IntrusionEvent,
+        frame: Optional[np.ndarray] = None,
+    ) -> None: ...
 
 
 class FrameProcessor:

@@ -7,6 +7,7 @@ import numpy as np
 from loguru import logger
 
 from app.services.vision_ai.capture_service import CaptureService
+from app.services.vision_ai.communication.event_publisher import EventPublisher
 
 
 class FrameProcessor(Protocol):
@@ -26,11 +27,13 @@ class FrameService:
         jpeg_quality: int = 75,
         resize: Optional[tuple[int, int]] = None,
         capture_service: Optional[CaptureService] = None,
+        event_publisher: Optional[EventPublisher] = None,
     ) -> None:
         self._processor = processor
         self._jpeg_quality = jpeg_quality
         self._resize = resize
         self._capture_service = capture_service
+        self._event_publisher = event_publisher
 
     @staticmethod
     def decode_frame(frame_bytes: bytes) -> Optional[np.ndarray]:
@@ -71,12 +74,16 @@ class FrameService:
             show_display=True,
         )
 
-        if self._capture_service is not None and events:
-            self._capture_service.save_danger_frames(
-                processed_frame,
-                events,
-                camera_id,
-            )
+        for event in events:
+            snapshot_path = None
+            if self._capture_service is not None:
+                snapshot_path = self._capture_service.save_danger_frame(
+                    processed_frame,
+                    event,
+                    camera_id,
+                )
+            if self._event_publisher is not None:
+                self._event_publisher.publish(event, camera_id, snapshot_path)
 
         encoded_frame = self.encode_frame(processed_frame)
         if encoded_frame is None:

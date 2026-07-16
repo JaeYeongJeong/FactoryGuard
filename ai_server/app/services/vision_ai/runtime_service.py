@@ -16,6 +16,7 @@ from app.services.vision_ai import (
     create_video_source,
 )
 from app.services.vision_ai.capture_service import CaptureService
+from app.services.vision_ai.communication.event_publisher import EventPublisher
 from app.services.vision_ai.frame_service import FrameService
 from app.services.vision_ai.websocket_service import websocket_service
 
@@ -29,6 +30,7 @@ class VisionAIService:
         self._processor: Optional[FrameProcessor] = None
         self._zone_manager: Optional[DangerZoneManager] = None
         self._video_source = None
+        self._event_publisher: Optional[EventPublisher] = None
 
     def _build_frame_processor(self, video_source=None) -> FrameProcessor:
         self._zone_manager = DangerZoneManager(
@@ -105,6 +107,13 @@ class VisionAIService:
                 self._video_source = None
 
         self._processor = self._build_frame_processor(self._video_source)
+        self._event_publisher = EventPublisher(
+            backend_url=settings.api.backend_url,
+            ai_public_url=settings.api.ai_public_url,
+            timeout=settings.api.timeout,
+            retry_count=settings.api.retry_count,
+        )
+        self._event_publisher.start()
         websocket_service.configure(
             FrameService(
                 self._processor,
@@ -113,6 +122,7 @@ class VisionAIService:
                     capture_dir=settings.event.snapshot_dir,
                     enabled=settings.event.save_snapshots,
                 ),
+                event_publisher=self._event_publisher,
             )
         )
 
@@ -134,12 +144,15 @@ class VisionAIService:
             self._video_thread.join(timeout=5)
         if self._video_source is not None:
             self._video_source.release()
+        if self._event_publisher is not None:
+            self._event_publisher.stop()
 
         websocket_service.configure(None)
         self._video_thread = None
         self._video_source = None
         self._processor = None
         self._zone_manager = None
+        self._event_publisher = None
         logger.info("Vision AI 리소스 반환 완료")
 
     def get_health(self) -> dict:
