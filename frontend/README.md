@@ -20,6 +20,6 @@ WebSocket 주소도 반드시 `wss://`를 사용해야 합니다.
 - 위험 이벤트: `GET /events`, `WS /events/stream`
 - 이벤트 조치: `PATCH /events/{event_id}`
 - AI 영상: AI 서버 `WS /ws/view/{camera_id}`
-- 사고 분석: `POST /reports/analyze-with-legal-basis`
+- 감지 사건 사후 분석: `POST /reports/analyze-event/{event_id}`
 - RAG: `POST /rag/search`
 - KWS: `POST /kws/simulate`

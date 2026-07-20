@@ -1,20 +1,40 @@
-import { BookOpen, FileImage, LoaderCircle, Printer, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { analyzeImage } from "../api";
+import { ArrowLeft, BookOpen, FileImage, LoaderCircle, Printer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { analyzeEvent } from "../api";
+import { eventLabel, severityLabel, statusLabel } from "../labels";
 import type { DetectionEvent, IncidentReport } from "../types";
 
-function Report({ events, reports, onCreated }: { events: DetectionEvent[]; reports: IncidentReport[]; onCreated: () => Promise<void> }) {
-  const [eventId, setEventId] = useState(events[0]?.event_id || ""); const [file, setFile] = useState<File | null>(null); const [preview, setPreview] = useState("");
-  const [result, setResult] = useState<Record<string, any> | null>(null); const [selected, setSelected] = useState<IncidentReport | null>(reports[0] || null); const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (!selected && reports[0]) setSelected(reports[0]); }, [reports, selected]);
-  const choose = (next?: File) => { if (!next) return; if (preview) URL.revokeObjectURL(preview); setFile(next); setPreview(URL.createObjectURL(next)); setResult(null); };
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
-  const submit = async () => { if (!file) return; setLoading(true); setError(""); try { setResult(await analyzeImage(file, eventId || undefined)); await onCreated(); } catch (e) { setError(e instanceof Error ? e.message : "분석에 실패했습니다."); } finally { setLoading(false); } };
+type Props = {
+  event: DetectionEvent | null;
+  reports: IncidentReport[];
+  onCreated: () => Promise<void>;
+  onOpenHistory: () => void;
+};
+
+function Report({ event, reports, onCreated, onOpenHistory }: Props) {
+  const linkedReport = reports.find((report) => report.event_id === event?.event_id) || null;
+  const [result, setResult] = useState<Record<string, any> | null>(null);
+  const [selected, setSelected] = useState<IncidentReport | null>(linkedReport || reports[0] || null);
+  const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+
+  useEffect(() => {
+    setResult(null); setError("");
+    setSelected(reports.find((report) => report.event_id === event?.event_id) || null);
+  }, [event?.event_id, reports]);
+
+  const submit = async () => {
+    if (!event?.snapshot_url) return;
+    setLoading(true); setError("");
+    try { setResult(await analyzeEvent(event.event_id)); await onCreated(); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "분석에 실패했습니다."); }
+    finally { setLoading(false); }
+  };
   const visible = result || selected;
-  return <div><div className="page-heading report-head"><div><h1>AI 사후 리포트</h1><p className="page-desc">현장 이미지를 분석하고 관련 안전 근거와 조치를 생성합니다.</p></div><button className="button secondary" onClick={() => window.print()}><Printer size={17}/> 인쇄</button></div>
-    <div className="report-workspace"><section className="panel report-builder"><h2>새 분석</h2><label>연결 이벤트<select value={eventId} onChange={(e) => setEventId(e.target.value)}><option value="">이벤트 연결 안 함</option>{events.map((e) => <option value={e.event_id} key={e.event_id}>{e.zone_name} · {e.event_type}</option>)}</select></label><button className={`upload-zone ${preview ? "preview" : ""}`} onClick={() => input.current?.click()}>{preview ? <img src={preview} alt="분석 이미지 미리보기"/> : <><Upload/><strong>사고 이미지 선택</strong><small>JPEG, PNG, WEBP · 최대 10MB</small></>}</button><input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => choose(e.target.files?.[0])}/>{error && <p className="error-text">{error}</p>}<button className="button full" disabled={!file || loading} onClick={() => void submit()}>{loading ? <><LoaderCircle className="spin"/>분석 중</> : <><FileImage/>Vision LLM 분석</>}</button>
-      <div className="saved-reports"><h3>저장된 리포트</h3>{reports.length === 0 ? <p>저장된 리포트가 없습니다.</p> : reports.map((r) => <button className={selected?.report_id === r.report_id && !result ? "active" : ""} key={r.report_id} onClick={() => { setSelected(r); setResult(null); }}><strong>{new Date(r.created_at).toLocaleDateString("ko-KR")}</strong><span>{r.source}</span></button>)}</div></section>
-      <section className="panel report-document">{!visible ? <div className="empty-state"><FileImage/><p>생성되거나 저장된 리포트가 없습니다.</p></div> : <><div className="report-title"><div><small>{String(visible.source || "VISION LLM")}</small><h2>산업 안전 사고 분석 보고서</h2></div><span>{String(visible.report_id || "새 분석")}</span></div><div className="report-body">{String(visible.report || "")}</div>{Array.isArray(visible.recommended_action) && visible.recommended_action.length > 0 && <div className="report-section"><h3>권장 조치</h3><ol>{visible.recommended_action.map((a: string) => <li key={a}>{a}</li>)}</ol></div>}{Array.isArray(visible.legal_basis) && visible.legal_basis.length > 0 && <div className="report-section"><h3><BookOpen size={18}/> 법령 및 안전 근거</h3>{visible.legal_basis.map((b: Record<string, any>, i: number) => <article className="legal-item" key={i}><strong>{String(b.title || b.section || "근거 자료")}</strong><small>{String(b.source || b.corpus || "")}{b.pages ? ` · ${b.pages}쪽` : ""}</small><p>{String(b.reason || b.text || "")}</p></article>)}</div>}</>}</section></div>
+
+  return <div><div className="page-heading report-head"><div><h1>AI 사후 리포트</h1><p className="page-desc">감지 당시 AI 서버에 저장된 캡처로 사고 상황과 안전 근거를 분석합니다.</p></div><button className="button secondary" onClick={() => window.print()}><Printer size={17}/> 인쇄</button></div>
+    <div className="report-workspace"><section className="panel report-builder"><button className="back-link" onClick={onOpenHistory}><ArrowLeft size={16}/> 감지 이력</button>{!event ? <div className="empty-state compact"><FileImage/><p>감지 이력에서 분석할 사건을 선택하세요.</p></div> : <><div className="selected-incident"><div><small>{new Date(event.timestamp).toLocaleString("ko-KR")}</small><h2>{eventLabel(event.event_type)}</h2><p>{event.zone_name} · 작업자 #{event.worker_id}</p></div><span className={`badge ${event.severity}`}>{severityLabel(event.severity)}</span></div>{event.snapshot_url ? <img className="report-capture" src={event.snapshot_url} alt={`${eventLabel(event.event_type)} 감지 캡처`}/> : <div className="capture-missing"><FileImage/><strong>저장된 캡처가 없습니다.</strong><small>최초 감지 시 캡처 저장 설정을 확인하세요.</small></div>}<dl className="event-details"><div><dt>감지 상태</dt><dd>{statusLabel(event.status)}</dd></div><div><dt>조치 상태</dt><dd>{statusLabel(event.response_status || "확인 필요")}</dd></div><div><dt>지속 시간</dt><dd>{Math.round(event.duration || 0)}초</dd></div></dl>{error && <p className="error-text">{error}</p>}<button className="button full" disabled={!event.snapshot_url || loading} onClick={() => void submit()}>{loading ? <><LoaderCircle className="spin"/>분석 중</> : <><FileImage/>사후 리포트 작성</>}</button></>}
+      <div className="saved-reports"><h3>저장된 리포트</h3>{reports.length === 0 ? <p>저장된 리포트가 없습니다.</p> : reports.map((report) => <button className={selected?.report_id === report.report_id && !result ? "active" : ""} key={report.report_id} onClick={() => { setSelected(report); setResult(null); }}><strong>{new Date(report.created_at).toLocaleDateString("ko-KR")}</strong><span>{report.source}</span></button>)}</div></section>
+      <section className="panel report-document">{!visible ? <div className="empty-state"><FileImage/><p>선택된 사건의 리포트가 없습니다.</p></div> : <><div className="report-title"><div><small>{String(visible.source || "VISION LLM")}</small><h2>산업 안전 사고 분석 보고서</h2></div><span>{String(visible.report_id || "새 분석")}</span></div><div className="report-body">{String(visible.report || "")}</div>{Array.isArray(visible.recommended_action) && visible.recommended_action.length > 0 && <div className="report-section"><h3>권장 조치</h3><ol>{visible.recommended_action.map((action: string) => <li key={action}>{action}</li>)}</ol></div>}{Array.isArray(visible.legal_basis) && visible.legal_basis.length > 0 && <div className="report-section"><h3><BookOpen size={18}/> 법령 및 안전 근거</h3>{visible.legal_basis.map((basis: Record<string, any>, index: number) => <article className="legal-item" key={index}><strong>{String(basis.title || basis.section || "근거 자료")}</strong><small>{String(basis.source || basis.corpus || "")}{basis.pages ? ` · ${basis.pages}쪽` : ""}</small><p>{String(basis.reason || basis.text || "")}</p></article>)}</div>}</>}</section></div>
   </div>;
 }
 export default Report;

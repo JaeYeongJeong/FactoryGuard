@@ -76,6 +76,13 @@ class EventService:
         documents = await asyncio.to_thread(fetch_events)
         return [self._serialize(document) for document in documents]
 
+    async def get_event(self, event_id: str) -> dict | None:
+        document = await asyncio.to_thread(
+            self._collection.find_one,
+            {"event_id": event_id},
+        )
+        return self._serialize(document) if document is not None else None
+
     async def update_event(
         self,
         event_id: str,

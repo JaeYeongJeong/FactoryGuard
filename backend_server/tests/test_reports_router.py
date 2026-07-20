@@ -1,11 +1,9 @@
 import asyncio
-import io
 import os
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 
 from fastapi.testclient import TestClient
-from starlette.datastructures import Headers, UploadFile
 
 import app.main as backend_main
 from app.routers import reports_router
@@ -36,6 +34,20 @@ class FakeAIGatewayService:
         return {"success": True, "report_id": "report-ai-001"}
 
 
+class FakeEventService:
+    async def get_event(self, event_id: str):
+        return {
+            "event_id": event_id,
+            "snapshot_url": "https://ai.example.com/captures/event.jpg",
+        }
+
+
+class FakeSnapshotService:
+    async def fetch(self, snapshot_url: str):
+        assert snapshot_url == "https://ai.example.com/captures/event.jpg"
+        return "event.jpg", b"captured-jpeg", "image/jpeg"
+
+
 def test_report_can_be_saved_and_loaded(monkeypatch) -> None:
     service = FakeReportService()
     monkeypatch.setattr(reports_router, "report_service", service)
@@ -62,24 +74,19 @@ def test_report_can_be_saved_and_loaded(monkeypatch) -> None:
     assert loaded.json()["report"]["event_id"] == "event-001"
 
 
-def test_image_analysis_is_forwarded_to_ai_service(monkeypatch) -> None:
+def test_event_capture_is_forwarded_to_report_analysis(monkeypatch) -> None:
     gateway = FakeAIGatewayService()
     monkeypatch.setattr(reports_router, "ai_gateway_service", gateway)
-    image = UploadFile(
-        file=io.BytesIO(b"jpeg-data"),
-        filename="accident.jpg",
-        headers=Headers({"content-type": "image/jpeg"}),
-    )
+    monkeypatch.setattr(reports_router, "event_service", FakeEventService())
+    monkeypatch.setattr(reports_router, "snapshot_service", FakeSnapshotService())
 
-    result = asyncio.run(
-        reports_router.analyze_report(image=image, event_id="event-001")
-    )
+    result = asyncio.run(reports_router.analyze_event_report("event-001"))
 
     assert result["report_id"] == "report-ai-001"
     assert gateway.request == {
-        "path": "/reports/analyze",
-        "filename": "accident.jpg",
-        "content": b"jpeg-data",
+        "path": "/reports/analyze-with-legal-basis",
+        "filename": "event.jpg",
+        "content": b"captured-jpeg",
         "content_type": "image/jpeg",
         "event_id": "event-001",
     }

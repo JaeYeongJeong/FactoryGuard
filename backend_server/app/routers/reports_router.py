@@ -1,68 +1,48 @@
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 
 from app.schemas.report_schema import IncidentReportCreate
 from app.services.ai_gateway_service import AIServiceError, ai_gateway_service
 from app.services.report_service import report_service
+from app.services.event_service import event_service
+from app.services.snapshot_service import SnapshotError, snapshot_service
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_FILE_SIZE = 10 * 1024 * 1024
+@router.post("/analyze-event/{event_id}")
+async def analyze_event_report(event_id: str):
+    try:
+        event = await event_service.get_event(event_id)
+    except PyMongoError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="이벤트 저장소에 연결할 수 없습니다.",
+        ) from exc
+    if event is None:
+        raise HTTPException(status_code=404, detail="이벤트를 찾을 수 없습니다.")
 
-
-async def _proxy_analysis(
-    path: str,
-    image: UploadFile,
-    event_id: str | None,
-):
-    if image.content_type not in ALLOWED_IMAGE_TYPES:
+    snapshot_url = event.get("snapshot_url")
+    if not snapshot_url:
         raise HTTPException(
-            status_code=400,
-            detail="JPEG, PNG, WEBP 형식의 이미지만 업로드할 수 있습니다.",
-        )
-    content = await image.read()
-    if not content:
-        raise HTTPException(
-            status_code=400,
-            detail="업로드된 이미지가 비어 있습니다.",
-        )
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail="이미지 크기는 10MB 이하여야 합니다.",
+            status_code=422,
+            detail="이 이벤트에는 분석할 캡처 이미지가 없습니다.",
         )
 
     try:
+        filename, content, content_type = await snapshot_service.fetch(snapshot_url)
+    except SnapshotError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+    try:
         return await ai_gateway_service.analyze_image(
-            path=path,
-            filename=image.filename or "image.jpg",
+            path="/reports/analyze-with-legal-basis",
+            filename=filename,
             content=content,
-            content_type=image.content_type,
+            content_type=content_type,
             event_id=event_id,
         )
     except AIServiceError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-
-
-@router.post("/analyze")
-async def analyze_report(
-    image: UploadFile = File(...),
-    event_id: str | None = None,
-):
-    return await _proxy_analysis("/reports/analyze", image, event_id)
-
-
-@router.post("/analyze-with-legal-basis")
-async def analyze_report_with_legal_basis(
-    image: UploadFile = File(...),
-    event_id: str | None = None,
-):
-    return await _proxy_analysis(
-        "/reports/analyze-with-legal-basis",
-        image,
-        event_id,
-    )
 
 
 @router.post("")

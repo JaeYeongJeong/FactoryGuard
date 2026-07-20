@@ -19,6 +19,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportEvent, setReportEvent] = useState<DetectionEvent | null>(null);
 
   const refresh = useCallback(async () => {
     setError("");
@@ -41,6 +42,10 @@ function App() {
   };
 
   const navigate = (next: Page) => { setPage(next); setMenuOpen(false); };
+  const openReport = (event: DetectionEvent) => {
+    setReportEvent(event);
+    navigate("report");
+  };
 
   return (
     <div className="app">
@@ -55,8 +60,8 @@ function App() {
         {page === "dashboard" && <Dashboard events={events} loading={loading} />}
         {page === "monitoring" && <Monitoring />}
         {page === "event" && <EventResponse events={events} saveResponse={saveResponse} />}
-        {page === "history" && <History events={events} />}
-        {page === "report" && <Report events={events} reports={reports} onCreated={refresh} />}
+        {page === "history" && <History events={events} onSelect={openReport} />}
+        {page === "report" && <Report event={reportEvent} reports={reports} onCreated={refresh} onOpenHistory={() => navigate("history")} />}
         {page === "rag" && <Rag />}
         {page === "kws" && <Kws onDetected={receiveEvent} />}
       </main>
