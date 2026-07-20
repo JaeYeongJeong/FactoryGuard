@@ -14,7 +14,7 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 ```
 
 ### 백엔드 서버 실행 명령어
-cd FactoryGuard/backend
+cd FactoryGuard/backend_server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### ai 서버 실행 명령어
@@ -30,12 +30,52 @@ cloudflared tunnel run factoryguard-api
 
 ### Vision LLM / RAG / KWS 엔드포인트
 
+프론트엔드는 AI 서버를 직접 호출하지 않고 공개 백엔드 주소
+`API_BACKEND_PUBLIC_URL`을 기준으로 아래 API를 사용합니다. 백엔드는
+`API_AI_URL`의 내부 AI 서버로 요청을 전달합니다.
+
 - `POST /reports/analyze`: 이미지 Vision LLM 분석 및 백엔드 보고서 저장
 - `POST /reports/analyze-with-legal-basis`: Vision 분석, RAG 근거 결합, 백엔드 저장
 - `POST /rag/search`: 이벤트 기반 안전·개인정보 근거 검색
 - `POST /rag/report`: 근거, 권장조치, LLM 컨텍스트 생성
 - `POST /kws/simulate`: 긴급 키워드 시뮬레이션, 백엔드 이벤트 저장
 - `POST /kws/stop-test`: `dry_run` 정지 경로 점검
+- `GET /events?limit=50`: 최근 위험 이벤트 조회
+- `WS /events/stream`: 신규 위험 이벤트 실시간 수신
+- `GET /reports?limit=50`: 저장된 보고서 목록
+- `GET /reports/{report_id}`: 보고서 상세 조회
+
+RAG 검색 요청 예시:
+
+```json
+{
+  "event": {
+    "event_id": "event-001",
+    "source": "vision",
+    "risk_type": "끼임",
+    "equipment": "컨베이어",
+    "location": "1번 라인",
+    "description": "작업자가 컨베이어 구동부에 접근함",
+    "vision_labels": ["danger_zone_entry"]
+  },
+  "top_k": 5
+}
+```
+
+KWS 시뮬레이션 요청 예시:
+
+```json
+{
+  "text": "멈춰 위험해",
+  "location": "컨베이어 1번 라인",
+  "line_id": "line-1",
+  "force_stop": true,
+  "call_rag": true
+}
+```
+
+이미지 분석은 `multipart/form-data`의 `image` 필드로 전송하며 기존 이벤트와
+연결할 때는 `?event_id={event_id}` 쿼리를 추가합니다.
 
 RAG는 `ai_server/data/rag_indexes`의 FAISS 인덱스를 사용하며 임베딩 모델은
 첫 RAG 요청 시 로드됩니다. KWS는 현재 팀원 구현과 동일하게 텍스트 시뮬레이션

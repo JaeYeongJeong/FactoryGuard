@@ -12,6 +12,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MONGODB_URI = os.getenv("MONGODB_URI")
+AI_SERVER_URL = os.getenv("API_AI_URL", "http://localhost:8001").rstrip("/")
+AI_SERVER_TIMEOUT = float(os.getenv("API_AI_TIMEOUT", "120"))
 
 if not MONGODB_URI:
     raise RuntimeError("MONGODB_URI 환경변수가 설정되지 않았습니다.")
