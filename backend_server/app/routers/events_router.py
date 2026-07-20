@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pymongo.errors import PyMongoError
 
-from app.schemas.event_schema import DetectionEventCreate
+from app.schemas.event_schema import DetectionEventCreate, DetectionEventUpdate
 from app.services.event_connection_manager import event_connection_manager
 from app.services.event_service import event_service
 
@@ -30,6 +30,20 @@ async def get_recent_events(limit: int = Query(default=50, ge=1, le=200)):
             status_code=503,
             detail="이벤트 저장소에 연결할 수 없습니다.",
         ) from exc
+
+
+@router.patch("/{event_id}")
+async def update_detection_event(event_id: str, update: DetectionEventUpdate):
+    try:
+        event = await event_service.update_event(event_id, update)
+    except PyMongoError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="이벤트 저장소에 연결할 수 없습니다.",
+        ) from exc
+    if event is None:
+        raise HTTPException(status_code=404, detail="이벤트를 찾을 수 없습니다.")
+    return {"success": True, "event": event}
 
 
 @router.websocket("/stream")

@@ -2,11 +2,11 @@
 
 import asyncio
 
-from pymongo import DESCENDING
+from pymongo import DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app.db.collections import event_collection
-from app.schemas.event_schema import DetectionEventCreate
+from app.schemas.event_schema import DetectionEventCreate, DetectionEventUpdate
 from app.services.event_connection_manager import (
     EventConnectionManager,
     event_connection_manager,
@@ -62,6 +62,23 @@ class EventService:
 
         documents = await asyncio.to_thread(fetch_events)
         return [self._serialize(document) for document in documents]
+
+    async def update_event(
+        self,
+        event_id: str,
+        update: DetectionEventUpdate,
+    ) -> dict | None:
+        values = update.model_dump(exclude_none=True)
+        document = await asyncio.to_thread(
+            self._collection.find_one_and_update,
+            {"event_id": event_id},
+            {"$set": values},
+            return_document=ReturnDocument.AFTER,
+        )
+        serialized = self._serialize(document)
+        if serialized is not None:
+            await self._connection_manager.broadcast(serialized)
+        return serialized
 
 
 event_service = EventService()

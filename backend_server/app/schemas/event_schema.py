@@ -17,3 +17,8 @@ class DetectionEventCreate(BaseModel):
     zone_name: str
     message: str
     snapshot_url: Optional[str] = None
+
+
+class DetectionEventUpdate(BaseModel):
+    status: str
+    response_memo: Optional[str] = None

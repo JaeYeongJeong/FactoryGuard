@@ -64,6 +64,10 @@ ai_server/captures/*
 .DS_Store
 Thumbs.db
 
+# Frontend
+node_modules/
+dist/
+
 # 학습용 데이터셋, 테스트 이미지
 data
 !ai_server/data/

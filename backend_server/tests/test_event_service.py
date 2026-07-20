@@ -6,7 +6,7 @@ import pytest
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 
-from app.schemas.event_schema import DetectionEventCreate
+from app.schemas.event_schema import DetectionEventCreate, DetectionEventUpdate
 from app.services.event_service import EventService
 
 
@@ -16,6 +16,13 @@ class FakeCollection:
 
     def insert_one(self, document: dict) -> None:
         self.documents.append(dict(document))
+
+    def find_one_and_update(self, query: dict, update: dict, **_kwargs):
+        for document in self.documents:
+            if document["event_id"] == query["event_id"]:
+                document.update(update["$set"])
+                return dict(document)
+        return None
 
 
 class FakeConnectionManager:
@@ -77,3 +84,23 @@ def test_database_failure_is_not_broadcast() -> None:
         asyncio.run(service.create_event(event))
 
     assert manager.events == []
+
+
+def test_event_response_is_updated_and_streamed() -> None:
+    collection = FakeCollection()
+    collection.documents.append({
+        "event_id": "event-003",
+        "timestamp": datetime(2026, 7, 16, tzinfo=timezone.utc),
+        "status": "entered",
+    })
+    manager = FakeConnectionManager()
+    service = EventService(collection=collection, connection_manager=manager)
+
+    updated = asyncio.run(service.update_event(
+        "event-003",
+        DetectionEventUpdate(status="resolved", response_memo="현장 조치 완료"),
+    ))
+
+    assert updated["status"] == "resolved"
+    assert updated["response_memo"] == "현장 조치 완료"
+    assert manager.events == [updated]
