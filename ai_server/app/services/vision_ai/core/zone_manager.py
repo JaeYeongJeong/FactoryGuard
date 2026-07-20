@@ -197,23 +197,12 @@ class DangerZoneManager:
     def set_demo_zones(self, frame_width: int, frame_height: int) -> None:
         """
         데모/테스트용 위험구역 자동 생성
-        프레임 중앙에 사각형 위험구역 생성
+        프레임 우측에 사각형 위험구역 생성
         """
         demo_zones = [
             {
-                "zone_id": "demo-zone-1",
-                "name": "위험구역 A (중앙)",
-                "points": [
-                    [frame_width * 0.3, frame_height * 0.3],
-                    [frame_width * 0.7, frame_height * 0.3],
-                    [frame_width * 0.7, frame_height * 0.8],
-                    [frame_width * 0.3, frame_height * 0.8],
-                ],
-                "severity": "high"
-            },
-            {
                 "zone_id": "demo-zone-2",
-                "name": "위험구역 B (우측)",
+                "name": "위험구역 A (우측)",
                 "points": [
                     [frame_width * 0.75, frame_height * 0.2],
                     [frame_width * 0.95, frame_height * 0.2],
