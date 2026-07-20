@@ -22,7 +22,7 @@ export async function getEvents(limit = 100) {
 export async function updateEvent(eventId: string, status: string, responseMemo: string) {
   return (await request<{ event: DetectionEvent }>(`/events/${encodeURIComponent(eventId)}`, {
     method: "PATCH",
-    body: JSON.stringify({ status, response_memo: responseMemo }),
+    body: JSON.stringify({ response_status: status, response_memo: responseMemo }),
   })).event;
 }
 

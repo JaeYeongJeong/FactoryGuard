@@ -2,9 +2,13 @@ export type DetectionEvent = {
   event_id: string;
   camera_id: string;
   timestamp: string;
+  last_seen_at?: string | null;
+  exited_at?: string | null;
+  duration?: number;
   event_type: string;
   severity: string;
   status: string;
+  response_status?: string | null;
   worker_id: number;
   zone_name: string;
   message: string;

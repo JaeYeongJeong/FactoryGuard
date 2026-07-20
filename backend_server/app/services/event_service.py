@@ -26,29 +26,42 @@ class EventService:
     def _serialize(document: dict) -> dict:
         document = dict(document)
         document.pop("_id", None)
-        timestamp = document.get("timestamp")
-        if hasattr(timestamp, "isoformat"):
-            document["timestamp"] = timestamp.isoformat()
+        for field in ("timestamp", "last_seen_at", "exited_at"):
+            value = document.get(field)
+            if hasattr(value, "isoformat"):
+                document[field] = value.isoformat()
         return document
 
     async def create_event(self, event_data: DetectionEventCreate) -> dict:
         document = event_data.model_dump()
-        created = True
         try:
             await asyncio.to_thread(self._collection.insert_one, document)
         except DuplicateKeyError:
-            created = False
+            lifecycle_update = {
+                "status": event_data.status,
+                "last_seen_at": event_data.last_seen_at,
+                "exited_at": event_data.exited_at,
+                "duration": event_data.duration,
+                "message": event_data.message,
+                "severity": event_data.severity,
+            }
+            lifecycle_update = {
+                key: value
+                for key, value in lifecycle_update.items()
+                if value is not None
+            }
             existing = await asyncio.to_thread(
-                self._collection.find_one,
+                self._collection.find_one_and_update,
                 {"event_id": event_data.event_id},
+                {"$set": lifecycle_update},
+                return_document=ReturnDocument.AFTER,
             )
             if existing is None:
                 raise
             document = existing
 
         serialized = self._serialize(document)
-        if created:
-            await self._connection_manager.broadcast(serialized)
+        await self._connection_manager.broadcast(serialized)
         return serialized
 
     async def get_recent_events(self, limit: int = 50) -> list[dict]:

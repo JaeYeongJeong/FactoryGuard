@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 
 import pytest
+from pymongo.errors import DuplicateKeyError
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 
@@ -15,6 +16,8 @@ class FakeCollection:
         self.documents = []
 
     def insert_one(self, document: dict) -> None:
+        if any(item["event_id"] == document["event_id"] for item in self.documents):
+            raise DuplicateKeyError("duplicate event")
         self.documents.append(dict(document))
 
     def find_one_and_update(self, query: dict, update: dict, **_kwargs):
@@ -98,9 +101,50 @@ def test_event_response_is_updated_and_streamed() -> None:
 
     updated = asyncio.run(service.update_event(
         "event-003",
-        DetectionEventUpdate(status="resolved", response_memo="현장 조치 완료"),
+        DetectionEventUpdate(
+            response_status="resolved",
+            response_memo="현장 조치 완료",
+        ),
     ))
 
-    assert updated["status"] == "resolved"
+    assert updated["status"] == "entered"
+    assert updated["response_status"] == "resolved"
     assert updated["response_memo"] == "현장 조치 완료"
     assert manager.events == [updated]
+
+
+def test_lifecycle_update_does_not_create_duplicate_event() -> None:
+    collection = FakeCollection()
+    manager = FakeConnectionManager()
+    service = EventService(collection=collection, connection_manager=manager)
+    started_at = datetime(2026, 7, 16, tzinfo=timezone.utc)
+
+    entered = DetectionEventCreate(
+        event_id="incident-001",
+        camera_id="cam-01",
+        timestamp=started_at,
+        last_seen_at=started_at,
+        event_type="intrusion",
+        severity="high",
+        status="entered",
+        worker_id=7,
+        zone_name="위험구역",
+        message="침입 감지",
+    )
+    exited = entered.model_copy(update={
+        "status": "exited",
+        "last_seen_at": datetime(2026, 7, 16, 0, 0, 15, tzinfo=timezone.utc),
+        "exited_at": datetime(2026, 7, 16, 0, 0, 15, tzinfo=timezone.utc),
+        "duration": 15.0,
+        "message": "침입 상태 해제",
+    })
+
+    asyncio.run(service.create_event(entered))
+    updated = asyncio.run(service.create_event(exited))
+
+    assert len(collection.documents) == 1
+    assert updated["timestamp"] == "2026-07-16T00:00:00+00:00"
+    assert updated["status"] == "exited"
+    assert updated["duration"] == 15.0
+    assert updated["exited_at"] == "2026-07-16T00:00:15+00:00"
+    assert manager.events[-1] == updated

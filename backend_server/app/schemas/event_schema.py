@@ -10,9 +10,13 @@ class DetectionEventCreate(BaseModel):
     event_id: str
     camera_id: str
     timestamp: datetime
+    last_seen_at: Optional[datetime] = None
+    exited_at: Optional[datetime] = None
+    duration: float = 0.0
     event_type: str
     severity: str
     status: str
+    response_status: Optional[str] = None
     worker_id: int
     zone_name: str
     message: str
@@ -20,5 +24,5 @@ class DetectionEventCreate(BaseModel):
 
 
 class DetectionEventUpdate(BaseModel):
-    status: str
+    response_status: str
     response_memo: Optional[str] = None

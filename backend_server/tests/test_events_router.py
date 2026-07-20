@@ -46,4 +46,10 @@ def test_saved_event_is_streamed_to_frontend(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert collection.documents[0]["event_id"] == payload["event_id"]
-    assert streamed == payload
+    assert streamed == {
+        **payload,
+        "last_seen_at": None,
+        "exited_at": None,
+        "duration": 0.0,
+        "response_status": None,
+    }

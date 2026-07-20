@@ -34,6 +34,8 @@ class EventPublisher:
         self._timeout = timeout
         self._retry_count = retry_count
         self._queue: queue.Queue[dict] = queue.Queue(maxsize=max_queue_size)
+        self._active_incidents: dict[tuple[str, int, str, str], dict] = {}
+        self._incident_lock = threading.Lock()
         self._running = False
         self._worker: Optional[threading.Thread] = None
 
@@ -66,19 +68,47 @@ class EventPublisher:
             snapshot_url = f"{self._capture_base_url}/{filename}"
 
         status = getattr(event.event_type, "value", event.event_type)
-        timestamp = datetime.fromtimestamp(event.timestamp, tz=timezone.utc)
-        return {
-            "event_id": str(uuid4()),
-            "camera_id": camera_id,
-            "timestamp": timestamp.isoformat(),
-            "event_type": event.threat_type,
-            "severity": event.zone_severity,
-            "status": status,
-            "worker_id": event.tracker_id,
-            "zone_name": event.zone_name,
-            "message": self._message(event),
-            "snapshot_url": snapshot_url,
-        }
+        occurred_at = datetime.fromtimestamp(event.timestamp, tz=timezone.utc)
+        zone_key = str(getattr(event, "zone_id", event.zone_name))
+        incident_key = (
+            camera_id,
+            event.tracker_id,
+            zone_key,
+            event.threat_type,
+        )
+
+        with self._incident_lock:
+            incident = self._active_incidents.get(incident_key)
+            if status == "entered" or incident is None:
+                incident = {
+                    "event_id": str(uuid4()),
+                    "started_at": occurred_at,
+                }
+                self._active_incidents[incident_key] = incident
+
+            payload = {
+                "event_id": incident["event_id"],
+                "camera_id": camera_id,
+                "timestamp": incident["started_at"].isoformat(),
+                "last_seen_at": occurred_at.isoformat(),
+                "exited_at": (
+                    occurred_at.isoformat() if status == "exited" else None
+                ),
+                "duration": max(
+                    0.0,
+                    float(getattr(event, "duration", 0.0)),
+                ),
+                "event_type": event.threat_type,
+                "severity": event.zone_severity,
+                "status": status,
+                "worker_id": event.tracker_id,
+                "zone_name": event.zone_name,
+                "message": self._message(event),
+                "snapshot_url": snapshot_url,
+            }
+            if status == "exited":
+                self._active_incidents.pop(incident_key, None)
+        return payload
 
     def start(self) -> None:
         if self._running:
