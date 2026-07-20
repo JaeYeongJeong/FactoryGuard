@@ -21,5 +21,5 @@ WebSocket 주소도 반드시 `wss://`를 사용해야 합니다.
 - 이벤트 조치: `PATCH /events/{event_id}`
 - AI 영상: AI 서버 `WS /ws/view/{camera_id}`
 - 감지 사건 사후 분석: `POST /reports/analyze-event/{event_id}`
-- RAG: `POST /rag/search`
+- 저장된 리포트: `GET /reports`, `GET /reports/{report_id}`
 - KWS: `POST /kws/simulate`

@@ -34,6 +34,11 @@ class FakeRagEngine:
         return FakeRagResult()
 
 
+class FailingRagEngine:
+    def build_report_basis(self, **kwargs):
+        raise RuntimeError("RAG index unavailable")
+
+
 def test_kws_detection_is_saved_as_backend_danger_event() -> None:
     backend = FakeBackendClient()
     service = KwsService(backend_client=backend)
@@ -66,5 +71,25 @@ def test_kws_rag_report_is_saved_to_backend() -> None:
     )
 
     assert result.report_backend_saved is True
+    assert result.rag_used is True
+    assert result.rag_error is None
     assert backend.reports[0]["source"] == "kws_rag"
     assert backend.reports[0]["report"] == "# 비상정지 보고서"
+
+
+def test_kws_rag_failure_is_reported_without_losing_stop_event() -> None:
+    backend = FakeBackendClient()
+    service = KwsService(
+        backend_client=backend,
+        rag_engine=FailingRagEngine(),
+    )
+
+    result = service.simulate(
+        SimulateKwsRequest(text="멈춰", call_rag=True)
+    )
+
+    assert result.backend_saved is True
+    assert result.stop_command.accepted is True
+    assert result.rag_used is False
+    assert result.report_backend_saved is False
+    assert result.rag_error == "RAG index unavailable"

@@ -6,10 +6,11 @@ import { useEventStream } from "./hooks/useEventStream";
 import Dashboard from "./pages/Dashboard";
 import EventResponse from "./pages/EventResponse";
 import History from "./pages/History";
+import type { HistoryPreset } from "./pages/History";
 import Kws from "./pages/Kws";
 import Monitoring from "./pages/Monitoring";
-import Rag from "./pages/Rag";
 import Report from "./pages/Report";
+import SavedReports from "./pages/SavedReports";
 import type { DetectionEvent, IncidentReport } from "./types";
 
 function App() {
@@ -20,6 +21,8 @@ function App() {
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportEvent, setReportEvent] = useState<DetectionEvent | null>(null);
+  const [responseEvent, setResponseEvent] = useState<DetectionEvent | null>(null);
+  const [historyPreset, setHistoryPreset] = useState<HistoryPreset>("all");
 
   const refresh = useCallback(async () => {
     setError("");
@@ -46,6 +49,14 @@ function App() {
     setReportEvent(event);
     navigate("report");
   };
+  const openResponse = (event: DetectionEvent) => {
+    setResponseEvent(event);
+    navigate("event");
+  };
+  const openHistory = (preset: HistoryPreset = "all") => {
+    setHistoryPreset(preset);
+    navigate("history");
+  };
 
   return (
     <div className="app">
@@ -57,12 +68,12 @@ function App() {
           <span className={`connection-dot ${streamStatus}`} title="이벤트 스트림 상태" />
         </header>
         {error && <div className="error-banner">{error}<button onClick={() => void refresh()}>다시 시도</button></div>}
-        {page === "dashboard" && <Dashboard events={events} loading={loading} />}
+        {page === "dashboard" && <Dashboard events={events} loading={loading} onOpenHistory={openHistory} />}
         {page === "monitoring" && <Monitoring />}
-        {page === "event" && <EventResponse events={events} saveResponse={saveResponse} />}
-        {page === "history" && <History events={events} onSelect={openReport} />}
-        {page === "report" && <Report event={reportEvent} reports={reports} onCreated={refresh} onOpenHistory={() => navigate("history")} />}
-        {page === "rag" && <Rag />}
+        {page === "event" && <EventResponse events={events} initialEvent={responseEvent} saveResponse={saveResponse} />}
+        {page === "history" && <History events={events} preset={historyPreset} onRespond={openResponse} onReport={openReport} />}
+        {page === "report" && <Report event={reportEvent} events={events} reports={reports} onSelectEvent={setReportEvent} onCreated={refresh} onOpenHistory={() => openHistory("all")} />}
+        {page === "reports" && <SavedReports reports={reports} events={events} />}
         {page === "kws" && <Kws onDetected={receiveEvent} />}
       </main>
     </div>

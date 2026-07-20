@@ -1,11 +1,11 @@
-import { BarChart3, BookOpen, Camera, ClipboardList, FileSearch, Mic, ShieldAlert, X } from "lucide-react";
+import { Archive, BarChart3, Camera, ClipboardList, FileSearch, Mic, ShieldAlert, X } from "lucide-react";
 
-export type Page = "dashboard" | "monitoring" | "event" | "history" | "report" | "rag" | "kws";
+export type Page = "dashboard" | "monitoring" | "event" | "history" | "report" | "reports" | "kws";
 type Props = { setPage: (page: Page) => void; currentPage: Page; streamStatus: string; open: boolean; close: () => void };
 const items = [
   ["dashboard", "대시보드", BarChart3], ["monitoring", "CCTV 모니터링", Camera],
   ["event", "이벤트 응답", ShieldAlert], ["history", "감지 이력", ClipboardList],
-  ["report", "AI 사후 리포트", FileSearch], ["rag", "안전 근거 검색", BookOpen], ["kws", "음성 긴급정지", Mic],
+  ["report", "AI 사후 리포트", FileSearch], ["reports", "저장된 리포트", Archive], ["kws", "음성 긴급정지", Mic],
 ] as const;
 
 function Sidebar({ setPage, currentPage, streamStatus, open, close }: Props) {

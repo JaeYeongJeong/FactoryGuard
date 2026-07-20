@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { eventLabel, severityLabel, statusLabel } from "../labels";
 import type { DetectionEvent } from "../types";
 
-function EventResponse({ events, saveResponse }: { events: DetectionEvent[]; saveResponse: (id: string, status: string, memo: string) => Promise<void> }) {
+function EventResponse({ events, initialEvent, saveResponse }: { events: DetectionEvent[]; initialEvent: DetectionEvent | null; saveResponse: (id: string, status: string, memo: string) => Promise<void> }) {
   const [selectedId, setSelectedId] = useState("");
   const selected = events.find((e) => e.event_id === selectedId) || events[0];
   const [memo, setMemo] = useState(""); const [saving, setSaving] = useState(false); const [message, setMessage] = useState("");
+  useEffect(() => { if (initialEvent) setSelectedId(initialEvent.event_id); }, [initialEvent?.event_id]);
   useEffect(() => { setMemo(selected?.response_memo || ""); setMessage(""); }, [selected?.event_id, selected?.response_memo]);
   const save = async (status: string) => {
     if (!selected) return; setSaving(true); setMessage("");

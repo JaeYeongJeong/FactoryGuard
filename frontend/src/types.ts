@@ -26,18 +26,3 @@ export type IncidentReport = {
   recommended_action: string[];
   rag_available: boolean;
 };
-
-export type RagResult = {
-  query: string;
-  inferred_hazard_tags: string[];
-  results: Array<{
-    chunk_id: string;
-    rank: number;
-    adjusted_score: number;
-    section?: string | null;
-    source_filename?: string | null;
-    source_pages?: string | number | null;
-    text: string;
-    parent_text?: string | null;
-  }>;
-};

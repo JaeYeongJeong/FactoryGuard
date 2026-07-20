@@ -77,37 +77,61 @@ class KwsService:
             backend_saved = False
 
         rag_report = None
+        rag_used = False
+        rag_error = None
         report_backend_saved = False
         if request.call_rag:
-            engine = self._rag_engine or get_engine()
-            rag_report = engine.build_report_basis(
-                event=event.model_dump(),
-                top_k=app_settings.rag.top_k,
-            ).model_dump()
             try:
-                self.backend_client.create_report(
-                    {
-                        "report_id": f"report-{uuid4().hex}",
-                        "event_id": event.event_id,
-                        "source": "kws_rag",
-                        "created_at": event.timestamp,
-                        "report": rag_report.get("markdown") or event.description,
-                        "legal_basis": rag_report.get("legal_basis", []),
-                        "recommended_action": rag_report.get("recommended_action", []),
-                        "rag_available": True,
-                        "metadata": {"kws_event": event.model_dump()},
-                    }
-                )
-                report_backend_saved = True
+                engine = self._rag_engine or get_engine()
+                rag_event = event.model_dump()
+                rag_event["hazard_tags"] = ["비상정지"]
+                rag_report = engine.build_report_basis(
+                    event=rag_event,
+                    route="safety",
+                    top_k=app_settings.rag.top_k,
+                    include_markdown=True,
+                ).model_dump()
+                rag_used = True
             except Exception as exc:
-                logger.warning("KWS RAG 보고서 백엔드 저장 실패: %s", exc)
-                report_backend_saved = False
+                rag_error = str(exc)
+                logger.exception("KWS RAG 근거 생성 실패: %s", exc)
+
+            if rag_report is not None:
+                try:
+                    self.backend_client.create_report(
+                        {
+                            "report_id": f"report-{uuid4().hex}",
+                            "event_id": event.event_id,
+                            "source": "kws_rag",
+                            "created_at": event.timestamp,
+                            "report": (
+                                rag_report.get("markdown")
+                                or event.description
+                            ),
+                            "legal_basis": rag_report.get("legal_basis", []),
+                            "recommended_action": rag_report.get(
+                                "recommended_action",
+                                [],
+                            ),
+                            "rag_available": True,
+                            "metadata": {
+                                "kws_event": event.model_dump(),
+                                "rag_route": rag_report.get("route"),
+                            },
+                        }
+                    )
+                    report_backend_saved = True
+                except Exception as exc:
+                    rag_error = f"RAG 생성 성공, 백엔드 저장 실패: {exc}"
+                    logger.warning("KWS RAG 보고서 백엔드 저장 실패: %s", exc)
 
         return SimulateKwsResponse(
             detection=detection,
             event=event,
             stop_command=stop_result,
             rag_report=rag_report,
+            rag_used=rag_used,
+            rag_error=rag_error,
             backend_saved=backend_saved,
             backend_event=backend_event,
             report_backend_saved=report_backend_saved,

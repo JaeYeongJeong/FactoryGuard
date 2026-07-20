@@ -1,4 +1,4 @@
-import type { DetectionEvent, IncidentReport, RagResult } from "./types";
+import type { DetectionEvent, IncidentReport } from "./types";
 
 export const API_URL = (import.meta.env.VITE_API_BACKEND_URL || "http://localhost:8000").replace(/\/$/, "");
 export const AI_URL = (import.meta.env.VITE_API_AI_URL || "http://localhost:8001").replace(/\/$/, "");
@@ -32,10 +32,6 @@ export async function getReports(limit = 50) {
 
 export async function analyzeEvent(eventId: string) {
   return request<Record<string, unknown>>(`/reports/analyze-event/${encodeURIComponent(eventId)}`, { method: "POST" });
-}
-
-export async function searchRag(payload: Record<string, unknown>) {
-  return request<RagResult>("/rag/search", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function simulateKws(payload: Record<string, unknown>) {
