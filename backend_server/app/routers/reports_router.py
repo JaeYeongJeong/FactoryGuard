@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 
-from app.schemas.report_schema import IncidentReportCreate
+from app.schemas.report_schema import (
+    IncidentReportAnalysisRequest,
+    IncidentReportCreate,
+)
 from app.services.ai_gateway_service import AIServiceError, ai_gateway_service
 from app.services.report_service import report_service
 from app.services.event_service import event_service
@@ -10,7 +13,10 @@ from app.services.snapshot_service import SnapshotError, snapshot_service
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 @router.post("/analyze-event/{event_id}")
-async def analyze_event_report(event_id: str):
+async def analyze_event_report(
+    event_id: str,
+    request: IncidentReportAnalysisRequest,
+):
     try:
         event = await event_service.get_event(event_id)
     except PyMongoError as exc:
@@ -35,7 +41,11 @@ async def analyze_event_report(event_id: str):
 
     try:
         return await ai_gateway_service.analyze_image(
-            path="/reports/analyze-with-legal-basis",
+            path=(
+                "/reports/analyze-with-legal-basis"
+                if request.use_rag
+                else "/reports/analyze"
+            ),
             filename=filename,
             content=content,
             content_type=content_type,

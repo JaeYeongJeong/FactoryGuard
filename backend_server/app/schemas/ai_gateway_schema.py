@@ -40,7 +40,6 @@ class KwsSimulateRequest(BaseModel):
     equipment: str | None = None
     line_id: str | None = None
     force_stop: bool = True
-    call_rag: bool = False
 
 
 class KwsStopTestRequest(BaseModel):

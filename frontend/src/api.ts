@@ -30,8 +30,11 @@ export async function getReports(limit = 50) {
   return (await request<{ reports: IncidentReport[] }>(`/reports?limit=${limit}`)).reports;
 }
 
-export async function analyzeEvent(eventId: string) {
-  return request<Record<string, unknown>>(`/reports/analyze-event/${encodeURIComponent(eventId)}`, { method: "POST" });
+export async function analyzeEvent(eventId: string, useRag: boolean) {
+  return request<Record<string, unknown>>(`/reports/analyze-event/${encodeURIComponent(eventId)}`, {
+    method: "POST",
+    body: JSON.stringify({ use_rag: useRag }),
+  });
 }
 
 export async function simulateKws(payload: Record<string, unknown>) {

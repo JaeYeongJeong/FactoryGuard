@@ -37,7 +37,6 @@ class SimulateKwsRequest(BaseModel):
     equipment: str | None = None
     line_id: str | None = None
     force_stop: bool = True
-    call_rag: bool = False
 
 
 class StopCommandResult(BaseModel):
@@ -53,12 +52,8 @@ class SimulateKwsResponse(BaseModel):
     detection: KwsDetection
     event: KwsEvent | None = None
     stop_command: StopCommandResult | None = None
-    rag_report: dict[str, Any] | None = None
-    rag_used: bool = False
-    rag_error: str | None = None
     backend_saved: bool = False
     backend_event: dict[str, Any] | None = None
-    report_backend_saved: bool = False
 
 
 class StopTestRequest(BaseModel):

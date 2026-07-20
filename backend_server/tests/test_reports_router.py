@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 import app.main as backend_main
 from app.routers import reports_router
+from app.schemas.report_schema import IncidentReportAnalysisRequest
 
 
 class FakeReportService:
@@ -80,7 +81,10 @@ def test_event_capture_is_forwarded_to_report_analysis(monkeypatch) -> None:
     monkeypatch.setattr(reports_router, "event_service", FakeEventService())
     monkeypatch.setattr(reports_router, "snapshot_service", FakeSnapshotService())
 
-    result = asyncio.run(reports_router.analyze_event_report("event-001"))
+    result = asyncio.run(reports_router.analyze_event_report(
+        "event-001",
+        IncidentReportAnalysisRequest(use_rag=True),
+    ))
 
     assert result["report_id"] == "report-ai-001"
     assert gateway.request == {
@@ -90,3 +94,17 @@ def test_event_capture_is_forwarded_to_report_analysis(monkeypatch) -> None:
         "content_type": "image/jpeg",
         "event_id": "event-001",
     }
+
+
+def test_event_capture_can_be_analyzed_without_rag(monkeypatch) -> None:
+    gateway = FakeAIGatewayService()
+    monkeypatch.setattr(reports_router, "ai_gateway_service", gateway)
+    monkeypatch.setattr(reports_router, "event_service", FakeEventService())
+    monkeypatch.setattr(reports_router, "snapshot_service", FakeSnapshotService())
+
+    asyncio.run(reports_router.analyze_event_report(
+        "event-001",
+        IncidentReportAnalysisRequest(use_rag=False),
+    ))
+
+    assert gateway.request["path"] == "/reports/analyze"
